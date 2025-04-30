@@ -1,4 +1,4 @@
-USE SolturaDB
+USE Soltura_DB
 
 CREATE TABLE [sol_featuretype] (
   [featuretypeid] INT NOT NULL,
@@ -273,6 +273,8 @@ CREATE TABLE [sol_subscriptionmembers] (
 CREATE TABLE [sol_servicetype] (
   [servicetypeid] INT NOT NULL,
   [name] VARCHAR(75) NOT NULL,
+  [description] VARCHAR(255) NULL,
+  [enabled] BIT NOT NULL DEFAULT 1,
   PRIMARY KEY ([servicetypeid])
 );
 
@@ -301,7 +303,9 @@ CREATE TABLE [sol_price_configurations] (
 
 CREATE TABLE [sol_service] (
   [serviceid] INT NOT NULL,
+  [name] VARCHAR(100) NOT NULL,
   [description] VARCHAR(100) NOT NULL,
+  [dataType] VARCHAR(50) NOT NULL,
   [original_amount] DECIMAL(10,2) NOT NULL,
   [sale_amount] DECIMAL(10,2) NOT NULL,
   [enabled] BIT NOT NULL DEFAULT 1,
@@ -432,22 +436,7 @@ CREATE TABLE [sol_plans] (
   PRIMARY KEY ([planid])
 );
 
-CREATE TABLE [sol_features] (
-  [featureid] INT NOT NULL,
-  [name] VARCHAR(100) NOT NULL,
-  [description] VARCHAR(100) NOT NULL,
-  [dataType] VARCHAR(50) NOT NULL,
-  [enabled] BIT NOT NULL DEFAULT 1,
-  [featuretypeid] INT NOT NULL,
-  [serviceId] INT NOT NULL,
-  PRIMARY KEY ([featureid]),
-  CONSTRAINT [FK_sol_features.serviceId]
-    FOREIGN KEY ([serviceId])
-      REFERENCES [sol_service]([serviceid]),
-  CONSTRAINT [FK_sol_features.featuretypeid]
-    FOREIGN KEY ([featuretypeid])
-      REFERENCES [sol_featuretype]([featuretypeid])
-);
+
 
 CREATE TABLE [sol_quantitytypes] (
   [quantitytypeid] INT NOT NULL,
@@ -462,12 +451,12 @@ CREATE TABLE [sol_planfeatures] (
   [value] VARCHAR(100) NOT NULL,
   [enabled] INT NOT NULL DEFAULT 1,
   [quantitytypeid] INT NOT NULL,
-  [featureid] INT NOT NULL,
+  [serviceid] INT NOT NULL,
   [plantid] INT NOT NULL,
   PRIMARY KEY ([planfeatureid]),
-  CONSTRAINT [FK_sol_planfeatures.featureid]
-    FOREIGN KEY ([featureid])
-      REFERENCES [sol_features]([featureid]),
+  CONSTRAINT [FK_sol_planfeatures.serviceid]
+    FOREIGN KEY ([serviceid])
+      REFERENCES [sol_service]([serviceid]),
   CONSTRAINT [FK_sol_planfeatures.quantitytypeid]
     FOREIGN KEY ([quantitytypeid])
       REFERENCES [sol_quantitytypes]([quantitytypeid]),
@@ -498,7 +487,7 @@ CREATE TABLE [sol_featureusage] (
   [notes] TEXT NULL,
   [subid] INT NOT NULL,
   [submembersid] INT NOT NULL,
-  [featureid] INT NOT NULL,
+  [serviceid] INT NOT NULL,
   [codeid] INT NOT NULL,
   PRIMARY KEY ([featureusageid]),
   CONSTRAINT [FK_sol_featureusage.subid]
@@ -507,9 +496,9 @@ CREATE TABLE [sol_featureusage] (
   CONSTRAINT [FK_sol_featureusage.submembersid]
     FOREIGN KEY ([submembersid])
       REFERENCES [sol_subscriptionmembers]([submembersid]),
-  CONSTRAINT [FK_sol_featureusage.featureid]
-    FOREIGN KEY ([featureid])
-      REFERENCES [sol_features]([featureid]),
+  CONSTRAINT [FK_sol_featureusage.serviceid]
+    FOREIGN KEY ([serviceid])
+      REFERENCES [sol_service]([serviceid]),
   CONSTRAINT [FK_sol_featureusage.codeid]
     FOREIGN KEY ([codeid])
       REFERENCES [sol_accesscode]([codeid])
