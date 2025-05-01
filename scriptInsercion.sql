@@ -1,0 +1,457 @@
+USE SolturaDB
+-- Insert into sol_currencies
+INSERT INTO sol_currencies (currencyid, name, acronym, country, symbol) VALUES (1, 'Colón costarricense', 'CRC', 'Costa Rica', '₡');
+INSERT INTO sol_currencies (currencyid, name, acronym, country, symbol) VALUES (2, 'Dólar estadounidense', 'USD', 'Estados Unidos', '$');
+
+SELECT * FROM sol_currencies
+
+-- Insert into sol_servicetype
+INSERT INTO sol_servicetype (servicetypeid, name) VALUES 
+(1, 'Gimnasios'),
+(2, 'Salud'),
+(3, 'Parqueos'),
+(4, 'Coworking'),
+(5, 'Educación'),
+(6, 'Streaming'),
+(7, 'Comida saludable');
+
+SELECT * FROM sol_servicetype
+
+-- Insert into sol_subscriptionstatus
+INSERT INTO sol_subscriptionstatus (statusid, name)
+VALUES (1, 'Activa'), (2, 'Inactiva'), (3, 'Cancelada');
+
+SELECT * FROM sol_subscriptionstatus
+
+-- Insert into sol_pay_methods
+-- Insert into sol_providers
+
+INSERT INTO sol_category (categoryid, name)
+VALUES
+(1, 'Gimnasios'),
+(2, 'Salud'),
+(3, 'Educación'),
+(4, 'Streaming'),
+(5, 'Comida saludable');
+
+SELECT * FROM sol_category
+
+INSERT INTO sol_providers(providerid,brand_name,legal_name,legal_identification,enabled,categoryId)
+VALUES
+(1, 'Spotify', 'Spotify S.A.', '3101123456', 1, 4),
+(2, 'Netflix', 'Netflix Inc.', '3101123457', 1, 4),
+(3, 'Smart Fit', 'Smart Fit Costa Rica', '3101123458', 1, 1),
+(4, 'Vindi Supermercados', 'Vindi S.A.', '3101123459', 1, 2),
+(5, 'Puma Energy', 'Puma Energy Centroamérica', '3101123460', 1, 5),
+(6, 'Cinemark', 'Cinemark C.R.', '3101123461', 1, 3),
+(7, 'Amazon Prime Video', 'Amazon Corp.', '3101123462', 1, 4);
+
+SELECT * FROM sol_providers
+
+INSERT INTO api_integrations (id, name, public_key, private_key, url, creation_date, last_update, enabled, idProvider)
+VALUES
+(1, 'Integración BAC', 'public_bac', 'private_bac', 'https://api.bac.com', GETDATE(), GETDATE(), 1, 1),
+(2, 'Integración SINPE', 'public_sinpe', 'private_sinpe', 'https://api.sinpe.fi.cr', GETDATE(), GETDATE(), 1, 2),
+(3, 'Integración PayPal', 'pk_paypal', 'sk_paypal', 'https://api.paypal.com', GETDATE(), GETDATE(), 1, 3),
+(4, 'Integración SINPE', 'pk_sinpe', 'sk_sinpe', 'https://api.sinpe.fi.cr', GETDATE(), GETDATE(), 1, 4);
+
+SELECT * FROM api_integrations
+
+INSERT INTO sol_pay_methods (id, name, secret_key, logo_icon_url, enabled, idApiIntegration)
+VALUES
+(1, 'Tarjeta de Crédito', CONVERT(VARBINARY(255), 'clave_bac'), 'https://logo.bac.com/card.png', 1, 1),
+(2, 'Transferencia Bancaria', CONVERT(VARBINARY(255), 'clave_bn'), 'https://logo.bncr.fi.cr/bank.png', 1, 2),
+(3, 'PayPal', CONVERT(VARBINARY(255), 'clave_paypal'), 'https://logo.paypal.com/paypal.png', 1, 3),
+(4, 'Sinpe Móvil', CONVERT(VARBINARY(255), 'clave_sinpe'), 'https://logo.sinpe.fi.cr/sinpe.png', 1, 4);
+
+SELECT * FROM sol_pay_methods
+
+-- Poblar tabla sol_plans (mínimo 9 como en el script de suscripciones)
+INSERT INTO sol_plans (planid, name, description, customizable, limit_people, enabled, codigoid)
+VALUES
+(1, 'Joven deportista', 'Ideal para jóvenes entre 18-25 con enfoque en gimnasios y salud', 1, 7, 1, 101),
+(2, 'Familia de Verano', 'Planes para familias en época de vacaciones, incluye parqueos y comida', 1, 10, 1, 102),
+(3, 'Viajero frecuente', 'Acceso a parqueos y coworkings en diferentes zonas', 1, 6, 1, 103),
+(4, 'Nómada Digital', 'Acceso a coworking, gimnasio y educación continua', 1, 8, 1, 104),
+(5, 'Estudiante Streaming', 'Ideal para estudiantes que consumen educación y entretenimiento', 1, 5, 1, 105),
+(6, 'Oficina Saludable', 'Planes para oficinas que ofrecen salud y comida saludable', 1, 9, 1, 106),
+(7, 'Movilidad Total', 'Parqueo, coworking y comida saludable en un solo paquete', 1, 6, 1, 107),
+(8, 'Pro Plus', 'Servicios premium para profesionales', 1, 8, 1, 108),
+(9, 'Básico Urbano', 'Servicios básicos para el trabajador urbano', 1, 7, 1, 109);
+
+SELECT * FROM sol_plans
+
+INSERT INTO sol_recurrencetypes (recurrencetypeid, name)
+VALUES
+(1, 'Diaria'),
+(2, 'Semanal'),
+(3, 'Mensual'),
+(4, 'Trimestral'),
+(5, 'Anual');
+
+SELECT * FROM sol_recurrencetypes
+
+
+INSERT INTO sol_schedules (scheduleid, name, description, recurrencetypeid, active, interval, startdate, endtype, repetitions)
+VALUES
+(1, 'Mensual', 'Pago mensual', 1, 1, 30, GETDATE(), 'NEVER', NULL),
+(2, 'Trimestral', 'Pago cada 3 meses', 1, 1, 90, GETDATE(), 'NEVER', NULL),
+(3, 'Anual', 'Pago anual', 1, 1, 365, GETDATE(), 'NEVER', NULL),
+(4, 'Semanal', 'Pago semanal', 1, 1, 7, GETDATE(), 'NEVER', NULL),
+(5, 'Bimestral', 'Pago bimestral', 1, 1, 60, GETDATE(), 'NEVER', NULL),
+(6, 'Semestral', 'Pago semestral', 1, 1, 180, GETDATE(), 'NEVER', NULL),
+(7, 'Diario', 'Pago diario', 1, 1, 1, GETDATE(), 'NEVER', NULL),
+(8, 'Especial', 'Condición especial', 1, 1, 15, GETDATE(), 'NEVER', NULL),
+(9, 'Bienal', 'Cada dos años', 1, 1, 730, GETDATE(), 'NEVER', NULL);
+
+SELECT * FROM sol_schedules
+
+INSERT INTO sol_countries (countryid, name)
+VALUES
+(1, 'Costa Rica'),
+(2, 'México'),
+(3, 'Guatemala'),
+(4, 'El Salvador'),
+(5, 'Honduras'),
+(6, 'Nicaragua'),
+(7, 'Panamá'),
+(8, 'Colombia'),
+(9, 'Perú'),
+(10, 'Chile');
+
+INSERT INTO sol_states (stateid, name, countryid)
+VALUES
+(1, 'San José', 1),
+(2, 'Alajuela', 1),
+(3, 'Jalisco', 2),
+(4, 'Nuevo León', 2),
+(5, 'Guatemala', 3),
+(6, 'Petén', 3),
+(7, 'San Salvador', 4),
+(8, 'La Libertad', 4),
+(9, 'Francisco Morazán', 5),
+(10, 'Cortés', 5),
+(11, 'León', 6),
+(12, 'Granada', 6),
+(13, 'Panamá', 7),
+(14, 'Chiriquí', 7),
+(15, 'Bogotá D.C.', 8),
+(16, 'Antioquia', 8),
+(17, 'Lima', 9),
+(18, 'Cusco', 9),
+(19, 'Santiago', 10),
+(20, 'Valparaíso', 10);
+
+INSERT INTO sol_cities (cityid, name, stateid)
+VALUES
+(1, 'San Pedro', 1),
+(2, 'Escazú', 1),
+(3, 'Quesada', 2),
+(4, 'San Ramón', 2),
+(5, 'Guadalajara', 3),
+(6, 'Tepatitlán', 3),
+(7, 'Monterrey', 4),
+(8, 'San Nicolás', 4),
+(9, 'Mixco', 5),
+(10, 'Villa Nueva', 5),
+(11, 'Flores', 6),
+(12, 'Melchor de Mencos', 6),
+(13, 'Soyapango', 7),
+(14, 'Ilopango', 7),
+(15, 'Santa Tecla', 8),
+(16, 'Zaragoza', 8),
+(17, 'Tegucigalpa', 9),
+(18, 'Comayagüela', 9),
+(19, 'San Pedro Sula', 10),
+(20, 'Puerto Cortés', 10),
+(21, 'León Viejo', 11),
+(22, 'Telica', 11),
+(23, 'Granada', 12),
+(24, 'Diriomo', 12),
+(25, 'Panamá City', 13),
+(26, 'San Miguelito', 13),
+(27, 'David', 14),
+(28, 'Boquete', 14),
+(29, 'Bogotá', 15),
+(30, 'Suba', 15),
+(31, 'Medellín', 16),
+(32, 'Envigado', 16),
+(33, 'Lima Metropolitana', 17),
+(34, 'San Juan de Lurigancho', 17),
+(35, 'Cusco', 18),
+(36, 'Urubamba', 18),
+(37, 'Santiago Centro', 19),
+(38, 'La Florida', 19),
+(39, 'Valparaíso', 20),
+(40, 'Viña del Mar', 20);
+
+-- Creación de los Usuarios
+DECLARE @UserCount INT = 40;
+
+-- Arreglos simulados
+DECLARE @FirstNames TABLE (Name VARCHAR(100));
+DECLARE @LastNames TABLE (Surname VARCHAR(100));
+DECLARE @EmailDomains TABLE (Domain VARCHAR(100));
+
+INSERT INTO @FirstNames VALUES ('Carlos'), ('María'), ('José'), ('Ana'), ('Luis'), ('Laura'), ('David'), ('Carmen');
+INSERT INTO @LastNames VALUES ('Ramírez'), ('González'), ('Fernández'), ('Rojas'), ('Soto'), ('Vargas'), ('Pérez'), ('Jiménez');
+INSERT INTO @EmailDomains VALUES ('@gmail.com'), ('@hotmail.com'), ('@outlook.com');
+
+DECLARE @i INT = 1;
+
+WHILE @i <= @UserCount
+BEGIN
+    DECLARE @FirstName VARCHAR(100) = (SELECT TOP 1 Name FROM @FirstNames ORDER BY NEWID());
+    DECLARE @LastName VARCHAR(100) = (SELECT TOP 1 Surname FROM @LastNames ORDER BY NEWID());
+    DECLARE @EmailDomain VARCHAR(100) = (SELECT TOP 1 Domain FROM @EmailDomains ORDER BY NEWID());
+
+    DECLARE @Username VARCHAR(100) = LOWER(@FirstName + LEFT(@LastName, 2) + CAST(@i AS VARCHAR));
+    DECLARE @Email VARCHAR(150) = LOWER(@FirstName + '.' + @LastName + CAST(@i AS VARCHAR) + @EmailDomain);
+
+    -- Crear dirección aleatoria (usando cityid aleatorio del 1 al 40)
+    DECLARE @CityId INT = (SELECT TOP 1 cityid FROM sol_cities ORDER BY NEWID());
+
+	-- Crear coordenadas aleatorias (por ejemplo dentro de Costa Rica)
+    DECLARE @Lat FLOAT = 9.9 + (RAND() * 0.2);
+    DECLARE @Lon FLOAT = -84.2 + (RAND() * 0.2);
+
+    INSERT INTO sol_address (addressid, line1, line2, zipcode, location, cityid)
+    VALUES (
+        @i,
+        'Calle ' + CAST((ABS(CHECKSUM(NEWID())) % 100 + 1) AS VARCHAR),
+        'Casa ' + CAST((ABS(CHECKSUM(NEWID())) % 200 + 1) AS VARCHAR),
+        CAST((10000 + ABS(CHECKSUM(NEWID())) % 90000) AS VARCHAR),
+        geography::Point(@Lat, @Lon, 4326),
+        @CityId
+    );
+
+    -- Insertar usuario con address generado
+    INSERT INTO sol_users (userid, username, firstname, lastname, email, password, isActive, addressid)
+    VALUES (@i, @Username, @FirstName, @LastName, @Email, 0x70617373776F7264, 1, @i); -- password: 'password'
+
+    SET @i = @i + 1;
+END
+
+SELECT * FROM sol_users
+
+SELECT * FROM sol_subscriptions
+
+INSERT INTO sol_contracts(contractid,description,start_date,end_date,enabled,providerid)
+VALUES
+(1, 'Contrato con Spotify',               GETDATE(), DATEADD(YEAR,1,GETDATE()), 1, 1),
+(2, 'Contrato con Netflix',               GETDATE(), DATEADD(YEAR,1,GETDATE()), 1, 2),
+(3, 'Contrato con Smart Fit',             GETDATE(), DATEADD(YEAR,1,GETDATE()), 1, 3),
+(4, 'Contrato con Vindi Supermercados',   GETDATE(), DATEADD(YEAR,1,GETDATE()), 1, 4),
+(5, 'Contrato con Puma Energy',           GETDATE(), DATEADD(YEAR,1,GETDATE()), 1, 5),
+(6, 'Contrato con Cinemark',              GETDATE(), DATEADD(YEAR,1,GETDATE()), 1, 6),
+(7, 'Contrato con Amazon Prime Video',    GETDATE(), DATEADD(YEAR,1,GETDATE()), 1, 7);
+
+SELECT * FROM sol_contracts
+
+INSERT INTO sol_price_configurations(price_config_id, provider_price, margin_type, margin_value, soltura_percent, client_percent)
+VALUES (1, 100.00, 'Porcentaje', 20.00, 50.00, 50.00);
+
+-- Definir posibles tipos de servicio para dataType
+DECLARE @ServiceTypes TABLE (typeid INT IDENTITY(1,1), typeName VARCHAR(50));
+INSERT INTO @ServiceTypes(typeName)
+VALUES
+  ('Subscripcion'),
+  ('Dinero'),
+  ('Cantidad'),
+  ('Duracion'),
+  ('Porcentaje');
+
+DECLARE 
+  @nextServiceId  INT = ISNULL((SELECT MAX(serviceid) FROM sol_service), 0),
+  @contractId     INT,
+  @numServices    INT,
+  @svcCounter     INT,
+  @typeCount      INT,
+  @pick           INT,
+  @dataType       VARCHAR(50),
+  @randVal        INT;
+
+-- Contar cuántos tipos tenemos
+SELECT @typeCount = COUNT(*) FROM @ServiceTypes;
+
+-- Recorrer cada contrato
+DECLARE contract_cursor CURSOR FOR 
+  SELECT contractid FROM sol_contracts;
+OPEN contract_cursor;
+FETCH NEXT FROM contract_cursor INTO @contractId;
+
+WHILE @@FETCH_STATUS = 0
+BEGIN
+  -- Determinar aleatoriamente entre 2 y 4 servicios
+  SET @numServices = ABS(CHECKSUM(NEWID())) % 3 + 2;
+  SET @svcCounter  = 1;
+
+  WHILE @svcCounter <= @numServices
+  BEGIN
+    -- Elegir un dataType al azar
+    SET @pick = ABS(CHECKSUM(NEWID())) % @typeCount + 1;
+    SELECT @dataType = typeName FROM @ServiceTypes WHERE typeid = @pick;
+
+    -- Elegir currencyid aleatorio entre 1 y 2
+    SET @randVal = ABS(CHECKSUM(NEWID())) % 2 + 1;
+    
+    -- Elegir servicetypeid aleatorio entre 1 y 7
+    DECLARE @randSvcType INT = ABS(CHECKSUM(NEWID())) % 7 + 1;
+
+    SET @nextServiceId = @nextServiceId + 1;
+
+    INSERT INTO sol_service
+      (serviceid
+      ,name
+      ,description
+      ,dataType
+      ,original_amount
+      ,sale_amount
+      ,enabled
+      ,contractid
+      ,currencyid
+      ,servicetypeid
+      ,price_config_id)
+    VALUES
+      (
+        @nextServiceId,
+        'Srv_' + CAST(@contractId AS VARCHAR(5)) + '_' + CAST(@svcCounter AS VARCHAR(2)),
+        'Srv ' + CAST(@svcCounter AS VARCHAR(2)) + ' para contrato ' + CAST(@contractId AS VARCHAR(5)),
+        @dataType,
+        CAST(ROUND((RAND(CHECKSUM(NEWID())) * 200 + 50), 2) AS DECIMAL(10,2)),
+        CAST(ROUND((RAND(CHECKSUM(NEWID())) * 200 + 50) * 1.2, 2) AS DECIMAL(10,2)),
+        1,
+        @contractId,
+        @randVal,
+        @randSvcType,
+        1   -- price_config_id
+      );
+
+    SET @svcCounter = @svcCounter + 1;
+  END
+
+  FETCH NEXT FROM contract_cursor INTO @contractId;
+END
+
+CLOSE contract_cursor;
+DEALLOCATE contract_cursor;
+
+Select * from sol_service
+
+INSERT INTO sol_quantitytypes(quantitytypeid,typename,description,iscumulative)
+VALUES
+(1,'UNIDAD','Cantidad de unidades',1),
+(2,'PORCENTAJE','Porcentaje aplicado',0),
+(3,'HORAS','Duración en horas',1),
+(4,'DÍAS','Duración en días',1),
+(5,'MONTO','Cantidad monetaria',1);
+
+DECLARE 
+  @nextPlanFeatureId INT = ISNULL((SELECT MAX(planfeatureid) FROM sol_planfeatures), 0),
+  @idplan           INT,
+  @services       INT,
+  @conta        INT,
+  @sid               INT;
+
+DECLARE plan_cursor CURSOR FOR
+  SELECT planid
+    FROM sol_plans
+   ORDER BY planid;
+
+OPEN plan_cursor;
+FETCH NEXT FROM plan_cursor INTO @idplan;
+
+WHILE @@FETCH_STATUS = 0
+BEGIN
+  -- Número aleatorio de servicios (2–4) para este plan
+  SET @services = ABS(CHECKSUM(NEWID())) % 3 + 2;
+  SET @conta  = 1;
+
+  WHILE @conta <= @services
+  BEGIN
+    -- Elegir un servicio no asignado aún a este plan
+    SELECT TOP 1 @sid = serviceid
+      FROM sol_service
+     WHERE serviceid NOT IN (
+           SELECT serviceid 
+             FROM sol_planfeatures 
+            WHERE plantid = @idplan
+         )
+     ORDER BY NEWID();
+
+    -- Asignar nuevo planfeatureid
+    SET @nextPlanFeatureId = @nextPlanFeatureId + 1;
+
+	DECLARE @qtid INT = ABS(CHECKSUM(NEWID())) % 5 + 1;
+
+    INSERT INTO sol_planfeatures
+      (planfeatureid, value, enabled, quantitytypeid, serviceid, plantid)
+    VALUES
+      (
+        @nextPlanFeatureId,
+        '1',        -- Valor por defecto; ajusta según tu lógica de negocio
+        1,          -- enabled
+        @qtid,      -- quantitytypeid aleatorio
+        @sid,       -- serviceid elegido
+        @idplan     -- planid actual
+      );
+
+    SET @conta = @conta + 1;
+  END
+
+  FETCH NEXT FROM plan_cursor INTO @idplan;
+END
+
+CLOSE plan_cursor;
+DEALLOCATE plan_cursor;
+
+SELECT * FROM sol_planfeatures
+
+SET @UserCount = @UserCount - 5;
+
+-- 2) Para cada uno de los 9 planes existentes, generar un número aleatorio de suscripciones (3–6)
+DECLARE @PlanCounts TABLE (planid INT PRIMARY KEY, cnt INT);
+INSERT INTO @PlanCounts(planid,cnt)
+SELECT
+  planid,
+  ABS(CHECKSUM(NEWID(),planid)) % 4 + 3
+FROM sol_plans;
+
+-- 3) Sumar totales y barajar usuarios 1..@UserCount
+WITH NumberedUsers AS (
+  SELECT TOP(@UserCount) number AS userid
+  FROM master..spt_values
+  WHERE type='P' AND number BETWEEN 1 AND @UserCount
+  ORDER BY NEWID()
+),
+AssignedUsers AS (
+  SELECT ROW_NUMBER() OVER(ORDER BY (SELECT NULL)) AS rownum, userid
+  FROM NumberedUsers
+),
+PlanSegments AS (
+  SELECT
+    planid,
+    cnt,
+    SUM(cnt) OVER(ORDER BY planid
+                  ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) - cnt + 1 AS startRow,
+    SUM(cnt) OVER(ORDER BY planid) AS endRow
+  FROM @PlanCounts
+)
+
+-- 4) Insertar suscripciones asignando planid por registro
+INSERT INTO sol_subscriptions
+  (subid, startdate, enddate, autorenew, statusid, scheduleid, userid, planid)
+SELECT
+  ROW_NUMBER() OVER(ORDER BY ps.planid, au.rownum)       AS subid,
+  GETDATE()                                              AS startdate,
+  DATEADD(YEAR,1,GETDATE())                              AS enddate,
+  1                                                      AS autorenew,
+  1                                                      AS statusid,
+  ps.planid                                              AS scheduleid,  -- si scheduleid coincide con planid
+  au.userid                                              AS userid,
+  ps.planid                                              AS planid
+FROM PlanSegments ps
+JOIN AssignedUsers au
+  ON au.rownum BETWEEN ps.startRow AND ps.endRow;
+
+SELECT * FROM sol_subscriptions
