@@ -1,4 +1,4 @@
-USE Soltura_DB
+USE SolturaDB
 
 CREATE TABLE [sol_featuretype] (
   [featuretypeid] INT NOT NULL,
@@ -236,6 +236,17 @@ CREATE TABLE [sol_users] (
       REFERENCES [sol_address]([addressid])
 );
 
+CREATE TABLE [sol_plans] (
+  [planid] INT NOT NULL,
+  [name] VARCHAR(75) NOT NULL,
+  [description] TEXT NULL,
+  [customizable] BIT NOT NULL DEFAULT 1,
+  [limit_people] SMALLINT NOT NULL,
+  [enabled] BIT NOT NULL DEFAULT 1,
+  [codigoid] INT NOT NULL,
+  PRIMARY KEY ([planid])
+);
+
 CREATE TABLE [sol_subscriptions] (
   [subid] INT NOT NULL,
   [startdate] DATETIME NOT NULL,
@@ -243,6 +254,7 @@ CREATE TABLE [sol_subscriptions] (
   [autorenew] BIT NOT NULL DEFAULT 1,
   [statusid] INT NOT NULL,
   [scheduleid] INT NOT NULL,
+  [planid] INT NOT NULL,
   [userid] INT NOT NULL,
   PRIMARY KEY ([subid]),
   CONSTRAINT [FK_sol_subscriptions.scheduleid]
@@ -253,7 +265,10 @@ CREATE TABLE [sol_subscriptions] (
       REFERENCES [sol_subscriptionstatus]([statusid]),
   CONSTRAINT [FK_sol_subscriptions.userid]
     FOREIGN KEY ([userid])
-      REFERENCES [sol_users]([userid])
+      REFERENCES [sol_users]([userid]),
+  CONSTRAINT [FK_sol_subscriptions.planid]
+    FOREIGN KEY ([planid])
+      REFERENCES [sol_plans]([planid]),
 );
 
 CREATE TABLE [sol_subscriptionmembers] (
@@ -423,17 +438,6 @@ CREATE TABLE [sol_log_type] (
   [name] VARCHAR(100) NOT NULL,
   [description] TEXT NULL,
   PRIMARY KEY ([log_typeid])
-);
-
-CREATE TABLE [sol_plans] (
-  [planid] INT NOT NULL,
-  [name] VARCHAR(75) NOT NULL,
-  [description] TEXT NULL,
-  [customizable] BIT NOT NULL DEFAULT 1,
-  [limit_people] SMALLINT NOT NULL,
-  [enabled] BIT NOT NULL DEFAULT 1,
-  [codigoid] INT NOT NULL,
-  PRIMARY KEY ([planid])
 );
 
 
