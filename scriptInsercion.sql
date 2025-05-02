@@ -298,16 +298,7 @@ BEGIN
     SET @nextServiceId = @nextServiceId + 1;
 
     INSERT INTO sol_service
-      (name
-      ,description
-      ,dataType
-      ,original_amount
-      ,sale_amount
-      ,enabled
-      ,contractid
-      ,currencyid
-      ,servicetypeid
-      ,price_config_id)
+      (name,description,dataType,original_amount,sale_amount,enabled,contractid,currencyid,servicetypeid,price_config_id)
     VALUES
       (
         'Srv_' + CAST(@contractId AS VARCHAR(5)) + '_' + CAST(@svcCounter AS VARCHAR(2)),
@@ -381,14 +372,7 @@ BEGIN
 
     INSERT INTO sol_planfeatures
       (value, enabled, quantitytypeid, serviceid, plantid)
-    VALUES
-      (
-        '1',        -- Valor por defecto; ajusta según tu lógica de negocio
-        1,          -- enabled
-        @qtid,      -- quantitytypeid aleatorio
-        @sid,       -- serviceid elegido
-        @idplan     -- planid actual
-      );
+    VALUES ('1', 1, @qtid, @sid, @idplan);
 
     SET @conta = @conta + 1;
   END
@@ -484,3 +468,15 @@ VALUES
   ,1              -- paymentmethodid → Tarjeta Demo
   ,1              -- availablemethodid → Tarjeta Demo disponible
   );
+
+
+
+INSERT INTO sol_transactiontypes(name) VALUES
+('Cobro'),('Reembolso'),('Ajuste');
+
+INSERT INTO sol_transactionsubtypes(name) VALUES
+('Pago inicial'), ('Pago recurrente'), ('Penalización');
+
+INSERT INTO sol_exchangerates(startdate, enddate, exchangerate, currentexchangerate, currencyidsource, currencyiddestiny)
+VALUES
+  (GETDATE(), NULL, 0.0018, 1, 1, 2), (GETDATE(), NULL, 550.0000, 1, 2, 1);
