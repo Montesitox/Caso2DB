@@ -538,3 +538,12 @@ CREATE TABLE dbo.sol_contact_info_providers (
     REFERENCES dbo.sol_contact_types(contact_typeid)
 );
 GO
+
+CREATE TABLE dbo.sol_migrated_users (
+  userid            INT NOT NULL PRIMARY KEY,
+  platform_name     VARCHAR(100) NOT NULL DEFAULT 'Payment Assistant',
+  password_changed  BIT NOT NULL DEFAULT 0,
+  CONSTRAINT FK_migrated_user FOREIGN KEY(userid)
+    REFERENCES dbo.sol_users(userid)
+);
+GO
