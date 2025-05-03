@@ -480,3 +480,8 @@ INSERT INTO sol_transactionsubtypes(name) VALUES
 INSERT INTO sol_exchangerates(startdate, enddate, exchangerate, currentexchangerate, currencyidsource, currencyiddestiny)
 VALUES
   (GETDATE(), NULL, 0.0018, 1, 1, 2), (GETDATE(), NULL, 550.0000, 1, 2, 1);
+
+INSERT INTO sol_contact_types (name, description) VALUES 
+('Teléfono', 'Número de teléfono de usuario');
+
+
