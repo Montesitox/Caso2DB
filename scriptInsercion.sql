@@ -1,4 +1,4 @@
-USE Soltura_DB
+USE SolturaDB
 -- sol_currencies
 INSERT INTO sol_currencies(name, acronym, country, symbol)
 VALUES

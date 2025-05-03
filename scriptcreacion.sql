@@ -1,7 +1,12 @@
-USE Soltura_DB;
+USE SolturaDB;
 GO
 
--- 1) Tablas base sin dependencias
+-- 1) Tablas base sin dependenciaS
+CREATE TABLE dbo.sol_countries (
+  countryid INT IDENTITY(1, 1) NOT NULL PRIMARY KEY,
+  name VARCHAR(60)	NOT NULL,
+);
+
 CREATE TABLE dbo.sol_featuretype (
   featuretypeid INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
   name          VARCHAR(50)      NOT NULL,
@@ -148,9 +153,9 @@ CREATE TABLE dbo.sol_users (
 );
 GO
 
-CREATE TABLE dbo.sol_category(dummy INT);
+--CREATE TABLE dbo.sol_category(dummy INT);
 -- sol_category ya creada arriba
-GO
+--GO
 
 CREATE TABLE dbo.sol_providers (
   providerid           INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
