@@ -547,3 +547,60 @@ CREATE TABLE dbo.sol_migrated_users (
     REFERENCES dbo.sol_users(userid)
 );
 GO
+
+CREATE TABLE dbo.sol_modules (
+  moduleid TINYINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+  name VARCHAR(50) NOT NULL
+);
+GO
+
+CREATE TABLE dbo.sol_roles (
+  roleid INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+  rolename VARCHAR(45) NOT NULL,
+  description VARCHAR(100) NOT NULL,
+  asignationdate DATETIME NOT NULL DEFAULT GETDATE(),
+  is_system_role BIT NOT NULL DEFAULT 0
+);
+GO
+
+CREATE TABLE dbo.sol_permissions (
+  permissionid INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+  permissioncode VARCHAR(10) NOT NULL,
+  description VARCHAR(100) NOT NULL,
+  htmlObjectid VARCHAR(250) NOT NULL,
+  moduleid TINYINT NOT NULL,
+  CONSTRAINT FK_sol_permissions_moduleid FOREIGN KEY (moduleid)
+    REFERENCES dbo.sol_modules (moduleid)
+);
+GO
+
+CREATE TABLE dbo.sol_rolespermissions (
+  rolepermissionsid INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+  asignationdate DATETIME NOT NULL DEFAULT GETDATE(),
+  enable BIT NOT NULL DEFAULT 1,
+  deleted BIT NOT NULL DEFAULT 0,
+  lastupdate DATETIME NOT NULL DEFAULT GETDATE(),
+  checksum VARBINARY(250) NOT NULL,
+  roleid INT NOT NULL,
+  permissionid INT NOT NULL,
+  CONSTRAINT FK_sol_rolespermissions_roleid FOREIGN KEY (roleid)
+    REFERENCES dbo.sol_roles (roleid),
+  CONSTRAINT FK_sol_rolespermissions_permissionid FOREIGN KEY (permissionid)
+    REFERENCES dbo.sol_permissions (permissionid)
+);
+GO
+
+CREATE TABLE dbo.sol_usersroles (
+  usersrolesid INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+  asignationdate DATETIME NOT NULL DEFAULT GETDATE(),
+  checksum VARBINARY(250) NOT NULL,
+  enable BIT NOT NULL DEFAULT 1,
+  deleted BIT NOT NULL DEFAULT 0,
+  roleid INT NOT NULL,
+  userid INT NOT NULL,
+  CONSTRAINT FK_sol_usersroles_roleid FOREIGN KEY (roleid)
+    REFERENCES dbo.sol_roles (roleid),
+  CONSTRAINT FK_sol_usersroles_userid FOREIGN KEY (userid)
+    REFERENCES dbo.sol_users (userid)
+);
+GO
