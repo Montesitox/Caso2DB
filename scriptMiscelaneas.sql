@@ -51,7 +51,7 @@ BEGIN
     INSERT INTO sol_transactions
       (name,description,amount,referencenumber,transactiondate,officetime,checksum,transactiontypeid,transactionsubtypeid,currencyid,exchangerateid,payid)
     VALUES
-      ('Subscripción Mensual', 'Transacción generada por CrearSubscripcionMensual',@Amount, CAST(@PayId AS VARCHAR(50)), GETDATE(), GETDATE(), CAST(HASHBYTES('MD5',CAST(@PayId AS VARCHAR(50))) AS VARBINARY(250)), 1, 1, 1, 1, @PayId);
+      ('SubscripciÃ³n Mensual', 'TransacciÃ³n generada por CrearSubscripcionMensual',@Amount, CAST(@PayId AS VARCHAR(50)), GETDATE(), GETDATE(), CAST(HASHBYTES('MD5',CAST(@PayId AS VARCHAR(50))) AS VARBINARY(250)), 1, 1, 1, 1, @PayId);
 
     COMMIT;
   END TRY
@@ -74,22 +74,50 @@ SELECT
   name,
   sale_amount,
   CASE
-    WHEN sale_amount < 100    THEN 'Económico'
+    WHEN sale_amount < 100    THEN 'EconÃ³mico'
     WHEN sale_amount BETWEEN 100 AND 200 THEN 'Medio'
     ELSE 'Premium'
   END AS price_category
 FROM sol_service;
 
--- 5. Intersection: usuarios con pago y suscripción (Dudas si se hace así)
-SELECT u.userid
-FROM sol_users u
-JOIN sol_subscriptions s ON s.userid = u.userid
-JOIN sol_payments      p ON p.paymentid = s.userid;
+-- 5. INTERSECT y SET DIFFERENCE
+-- Encuentra los planes que ofrecen tanto Gimnasios como Coworking (INTERSECTION)
+SELECT 
+  p.planid, 
+  p.name 
+FROM dbo.sol_plans AS p
+JOIN dbo.sol_planfeatures AS pf ON p.planid = pf.plantid
+JOIN dbo.sol_service      AS s  ON pf.serviceid = s.serviceid
+JOIN dbo.sol_servicetype  AS st ON s.servicetypeid = st.servicetypeid
+WHERE st.name = 'Gimnasios'
+INTERSECT
+SELECT 
+  p.planid, 
+  p.name 
+FROM dbo.sol_plans AS p
+JOIN dbo.sol_planfeatures AS pf ON p.planid = pf.plantid
+JOIN dbo.sol_service      AS s  ON pf.serviceid = s.serviceid
+JOIN dbo.sol_servicetype  AS st ON s.servicetypeid = st.servicetypeid
+WHERE st.name = 'Coworking';
 
--- Difference: usuarios con suscripción pero sin pago (Dudas si se hace así)
-SELECT s.userid
-FROM sol_subscriptions s
-WHERE s.userid NOT IN (SELECT paymentid FROM sol_payments);
+-- Encuentra los planes que ofrecen Gimnasios pero NO Coworking (SET DIFFERENCE)
+SELECT 
+  p.planid, 
+  p.name 
+FROM dbo.sol_plans AS p
+JOIN dbo.sol_planfeatures AS pf ON p.planid = pf.plantid
+JOIN dbo.sol_service      AS s  ON pf.serviceid = s.serviceid
+JOIN dbo.sol_servicetype  AS st ON s.servicetypeid = st.servicetypeid
+WHERE st.name = 'Gimnasios'
+EXCEPT
+SELECT 
+  p.planid, 
+  p.name 
+FROM dbo.sol_plans AS p
+JOIN dbo.sol_planfeatures AS pf ON p.planid = pf.plantid
+JOIN dbo.sol_service      AS s  ON pf.serviceid = s.serviceid
+JOIN dbo.sol_servicetype  AS st ON s.servicetypeid = st.servicetypeid
+WHERE st.name = 'Coworking';
 
 -- 7. JSON
 SELECT
@@ -116,7 +144,7 @@ FROM sol_users u
 JOIN sol_subscriptions s ON s.userid=u.userid
 FOR XML RAW('row'), ROOT('rows'), TYPE
 
--- 10. En servidor principal: (No se si está bien así)
+-- 10. En servidor principal: (No se si estÃ¡ bien asÃ­)
 CREATE PROCEDURE dbo.usp_LogToRemote
   @Msg NVARCHAR(4000)
 AS
@@ -136,4 +164,4 @@ END;
 GO
 
 --Luego, desde cualquier SP en el servidor principal:
-EXEC dbo.usp_LogToRemote 'Mensaje de bitácora';
+EXEC dbo.usp_LogToRemote 'Mensaje de bitÃ¡cora';
