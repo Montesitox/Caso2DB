@@ -484,4 +484,14 @@ VALUES
 INSERT INTO sol_contact_types (name, description) VALUES 
 ('Teléfono', 'Número de teléfono de usuario');
 
+INSERT INTO sol_conditiontypes(name, datatype)
+VALUES
+  ('Cantidad de unidades',      'INT'),
+  ('Porcentaje de descuento',   'DECIMAL'),
+  ('Duración en días',          'INT'),
+  ('Fecha límite',              'DATETIME'),
+  ('Monto mínimo',              'DECIMAL'),
+  ('Tasa fija',                 'DECIMAL'),
+  ('Duración en horas',         'INT');
+
 
