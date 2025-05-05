@@ -120,6 +120,8 @@ JOIN dbo.sol_servicetype  AS st ON s.servicetypeid = st.servicetypeid
 WHERE st.name = 'Coworking';
 
 -- 7. JSON
+-- Si es posible por medio de una consulta crear un JSON, esto retorna todos los planes que tienen todos los usuarios, esto nos
+-- serviria para la pantalla de dashboard de planes, o ver los registros de todas las subscripciones
 SELECT
   p.planid,
   p.name      AS plan_name,
