@@ -988,6 +988,30 @@ FOR XML RAW('row'), ROOT('rows'), TYPE
 
 Configurar una tabla de bitácora en otro servidor SQL Server accesible vía Linked Servers con impersonación segura desde los SP del sistema. Ahora haga un SP genérico para que cualquier SP en el servidor principal, pueda dejar bitácora en la nueva tabla que se hizo en el Linked Server.
 
+```sql
+-- 10. En servidor principal:
+CREATE PROCEDURE dbo.usp_LogToRemote
+  @Msg NVARCHAR(4000)
+AS
+BEGIN
+  EXEC [RemoteServer].SolturaLogDB.dbo.usp_InsertLog @Msg;
+END;
+GO
+
+-- En servidor remoto (Linked Server):
+CREATE PROCEDURE dbo.usp_InsertLog
+  @Msg NVARCHAR(4000)
+AS
+BEGIN
+  INSERT INTO dbo.LogTable(LogDate,Message)
+  VALUES(GETDATE(),@Msg);
+END;
+GO
+
+--Luego, desde cualquier SP en el servidor principal:
+EXEC dbo.usp_LogToRemote 'Mensaje de bitácora';
+```
+
 ## **Concurrencia**
 
 ### **Casos y niveles de isolación**
