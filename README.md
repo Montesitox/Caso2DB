@@ -466,6 +466,60 @@ JOIN AssignedUsers au
 Vista dinámica indexada con al menos 4 tablas
 
 ```sql
+-- 1. Crear la vista
+CREATE VIEW dbo.vw_UserSubscriptions
+WITH SCHEMABINDING
+AS
+SELECT
+    u.userid,
+    u.username,
+    s.subid,
+    s.planid,
+    p.name       AS plan_name,
+    COUNT_BIG(*) AS feature_count
+FROM dbo.sol_users       AS u
+JOIN dbo.sol_subscriptions AS s ON s.userid = u.userid
+JOIN dbo.sol_plans        AS p ON p.planid = s.planid
+JOIN dbo.sol_planfeatures AS pf ON pf.plantid = p.planid
+GROUP BY
+    u.userid,
+    u.username,
+    s.subid,
+    s.planid,
+    p.name;
+GO
+
+-- 2. Crear el índice único agrupado sobre la vista
+CREATE UNIQUE CLUSTERED INDEX IX_vw_UserSubscriptions
+    ON dbo.vw_UserSubscriptions(userid, subid, planid);
+GO
+```
+
+Para probar que la tabla es dinamica los siguientes scripts
+
+```sql
+SELECT * 
+FROM dbo.vw_UserSubscriptions
+WHERE username = 'demo_user';
+GO
+
+-- 2) Insertar un usuario demo y capturar su UserID
+DECLARE @NewUserID INT;
+INSERT INTO dbo.sol_users (username, firstname, lastname, email, password, isActive, addressid)
+VALUES ('demo_user','Demo','User','demo@example.com',0x706173,1,1);
+SET @NewUserID = SCOPE_IDENTITY();
+
+-- 3) Insertar una suscripción para ese usuario y capturar SubID
+DECLARE @NewSubID INT;
+INSERT INTO dbo.sol_subscriptions (startdate, enddate, autorenew, statusid, scheduleid, planid, userid)
+VALUES (GETDATE(), DATEADD(MONTH,1,GETDATE()), 1, 1, 1, 1, @NewUserID);
+SET @NewSubID = SCOPE_IDENTITY();
+GO
+
+SELECT * 
+FROM dbo.vw_UserSubscriptions
+WHERE username = 'demo_user';
+GO
 ```
 
 Crear un procedimiento almacenado transaccional que realice una operación del sistema, relacionado a subscripciones, pagos, servicios, transacciones o planes, y que dicha operación requiera insertar y/o actualizar al menos 3 tablas.
