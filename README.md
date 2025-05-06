@@ -991,7 +991,8 @@ Configurar una tabla de bitácora en otro servidor SQL Server accesible vía Lin
 ## **Concurrencia**
 
 ### **Casos y niveles de isolación**
-Reporte histórico general
+1.Reporte histórico general
+
 Cuando necesito generar un informe de todas las transacciones del año pasado, busco ante todo rendimiento y menor contención posible. Por eso yo optaría por READ UNCOMMITTED: me permite leer sin esperar a que otras sesiones terminen sus cambios, y evito bloqueos largos en tablas con millones de filas.
 
 Por qué no READ COMMITTED: ese nivel aún respeta los bloqueos de escritura, lo cual ralentizaría el reporte y no me protege de phantoms, así que pagaría costo por nada.
