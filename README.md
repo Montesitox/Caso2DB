@@ -29,6 +29,7 @@ Ahora que ya Soltura cuenta con un diseño de base de datos aprobados por los in
 Una vez aprobado el diseño de base de datos, ocupamos los scripts de llenado para la base de datos [Script de inserción completo](scriptInsercion.sql)
 
 El sistema opera al menos con dos monedas
+Inserción senciila de dos monedas en la tabla sol_currencies
 ```sql
 INSERT INTO sol_currencies(name, acronym, country, symbol)
 VALUES
@@ -37,7 +38,7 @@ VALUES
 ```
 
 Cargar los catálogos base del sistema: tipos de servicios (gimnasios, salud, parqueos, etc.), tipos de planes, métodos de pago, monedas, estados de suscripción, etc.
-
+Se realiza inserción de datos, en tablas que son necesarias para la inserción de otras tablas.
 ```sql
 -- sol_servicetype
 INSERT INTO sol_servicetype(name)
@@ -203,7 +204,7 @@ VALUES
 ```
 
 Carga de al menos 40 usuarios en el sistema
-
+Se realizó un algoritmo para crear n cantidad de usuarios, usando variables, arreglos simulados y creaciones aleatorias para darle variedad a los usuarios y que no sean del mismo sitio o tengan el mismo nombre
 ```sql
 -- Creación de los Usuarios
 DECLARE @UserCount INT = 40;
@@ -253,6 +254,7 @@ END
 ```
 
 Llenar la tabla de planes de suscripción, con variaciones como: Joven deportista, Familia de Verano, Viajero frecuente, Nomada Digiital, etc.
+Se hace un llenado de planes para suscribirse.
 ```sql
 
 -- sol_plans
@@ -271,8 +273,12 @@ VALUES
 
 Incluir al menos 7 empresas proveedoras de servicios (Ya fueron incluidas anteriormente, esto para poder crear las API_integrations), cada uno ofreciendo 2 a 4 combinaciones de servicios que se deben usar para crear de 7 a 9 planes diferentes.
 En este script por medio de los contratos con los proveedores ya creados, se le asignara a cada proveedor de 2 a 4 servicios que brindar.
+Todo esto por medio de un algoritmo
+Primero se definen los dataTypes que va a ocupar cierto servicio en concreto
+Luego se definen las variables con las que vamos a crear los servicios, posteriormente se va usar cursor en la tabla de sol_contracts para que cada contrato con un proveedor ofrezca de 2 a 4 servicios
+De igual forma se utiliza aleatoridad para darle más variedad a los servicios.
 ```sql
--- Definir posibles tipos de servicio
+-- Definir posibles dataTypes
 DECLARE @ServiceTypes TABLE (typeid INT IDENTITY(1,1), typeName VARCHAR(50));
 INSERT INTO @ServiceTypes(typeName)
 VALUES
@@ -348,7 +354,8 @@ DEALLOCATE contract_cursor;
 
 SELECT * FROM dbo.sol_service
 ```
-Ahora con estos servicios creados, por medio de cursor y viendo los servicios creados a cada plan se le asignarán los diferentes servicios
+Ahora con estos servicios creados, por medio de cursor, a cada plan se le asignarán los diferentes servicios, tambien se realiza una insercion necesaria en la tabla quantitytypes por las llaves foraneas
+Este cursor es de la tabla sol_plans, donde en cada plan creado se le va a asociar los servicios anteriormente creados
 ```sql
 INSERT INTO sol_quantitytypes(typename,description,iscumulative)
 VALUES
@@ -413,7 +420,7 @@ Para cada plan de servicios, debe haber 3 a 6 subscripciones a usuarios diferent
 ```sql
 SET @UserCount = @UserCount - 5;
 
--- 2) Para cada uno de los 9 planes existentes, generar un número aleatorio de suscripciones (3–6)
+-- Para cada uno de los 9 planes existentes, generar un número aleatorio de suscripciones (3–6)
 DECLARE @PlanCounts TABLE (planid INT PRIMARY KEY, cnt INT);
 INSERT INTO @PlanCounts(planid,cnt)
 SELECT
@@ -421,28 +428,45 @@ SELECT
   ABS(CHECKSUM(NEWID(),planid)) % 4 + 3
 FROM sol_plans;
 
--- 3) Sumar totales y barajar usuarios 1..@UserCount
+-- 1) NumberedUsers: toma los primeros @UserCount números del sistema (1..@UserCount),
+--    los baraja al azar (ORDER BY NEWID()) y los expone como posibles userids.
 WITH NumberedUsers AS (
-  SELECT TOP(@UserCount) number AS userid
-  FROM master..spt_values
-  WHERE type='P' AND number BETWEEN 1 AND @UserCount
-  ORDER BY NEWID()
+    SELECT TOP(@UserCount)
+        number AS userid     -- cada número here representará un userid ficticio
+    FROM master..spt_values
+    WHERE type = 'P'
+      AND number BETWEEN 1 AND @UserCount
+    ORDER BY NEWID()         -- barajamos aleatoriamente el listado de usuarios
 ),
+-- 2) AssignedUsers: a esos userids aleatorios les asigna un ROW_NUMBER secuencial,
+--    para poder luego mapear rangos de filas a cada plan.
 AssignedUsers AS (
-  SELECT ROW_NUMBER() OVER(ORDER BY (SELECT NULL)) AS rownum, userid
-  FROM NumberedUsers
+    SELECT
+        ROW_NUMBER() OVER(ORDER BY (SELECT NULL)) AS rownum,  -- número de fila 1..@UserCount
+        userid                                               -- el userid barajado
+    FROM NumberedUsers
 ),
+-- 3) PlanSegments: para cada plan en @PlanCounts, calcula un rango
+--    [startRow, endRow] basado en sumas acumuladas de cnt.
+--    startRow = suma acumulada hasta este plan menos cnt + 1  
+--    endRow   = suma acumulada hasta este plan
 PlanSegments AS (
-  SELECT
-    planid,
-    cnt,
-    SUM(cnt) OVER(ORDER BY planid
-                  ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) - cnt + 1 AS startRow,
-    SUM(cnt) OVER(ORDER BY planid) AS endRow
-  FROM @PlanCounts
+    SELECT
+        planid,
+        cnt,
+        SUM(cnt) OVER (ORDER BY planid
+                       ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+          - cnt + 1   AS startRow,  -- primera fila asignada a este plan
+        SUM(cnt) OVER (ORDER BY planid
+                       ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+          AS endRow     -- última fila asignada a este plan
+    FROM @PlanCounts
 )
+-- Con estos segmentos y AssignedUsers ya podemos unir:
+--   ROW_NUMBER entre startRow y endRow → a ese plan
+--   y quedarle un userid único a cada subcripción.
 
--- 4) Insertar suscripciones asignando planid por registro
+-- Insertar suscripciones asignando planid por registro
 INSERT INTO sol_subscriptions
   (startdate, enddate, autorenew, statusid, scheduleid, userid, planid)
 SELECT
@@ -464,7 +488,7 @@ JOIN AssignedUsers au
 
 ## **Consultas Misceláneas**
 Vista dinámica indexada con al menos 4 tablas
-
+Se creo una vista dinámica indexada de 4 tablas, users, subscriptions, plans y planfeatures, donde se va a poder observar a cuales planeas está asociada cada usuario y sus respectivas subscripciones
 ```sql
 -- 1. Crear la vista
 CREATE VIEW dbo.vw_UserSubscriptions
@@ -495,7 +519,7 @@ CREATE UNIQUE CLUSTERED INDEX IX_vw_UserSubscriptions
 GO
 ```
 
-Para probar que la tabla es dinamica los siguientes scripts
+Para probar que la tabla es dinamica los siguientes scripts, donde se inserta una nueva subscripcion y de igual forma dicha vista agrega este registro.
 
 ```sql
 SELECT * 
@@ -523,6 +547,7 @@ GO
 ```
 
 Crear un procedimiento almacenado transaccional que realice una operación del sistema, relacionado a subscripciones, pagos, servicios, transacciones o planes, y que dicha operación requiera insertar y/o actualizar al menos 3 tablas.
+Dicho procedimiento almacenado crear una subscripcion mensual a un usuario y automaticamente registra el pago y la transaccion necesaria.
 ```sql
 -- 2. SP Transaccional
 CREATE PROCEDURE dbo.CrearSubscripcionMensual
@@ -574,6 +599,8 @@ EXEC dbo.CrearSubscripcionMensual @UserId=1,@PlanId=1,@Amount=200.00,@PaymentMet
 ```
 
 Escribir un SELECT que use CASE para crear una columna calculada que agrupe dinámicamente datos (por ejemplo, agrupar cantidades de usuarios por plan en rangos de monto, no use este ejemplo).
+
+En esta consulta, se decidió por agrupar todos los servicios que brinda Soltura según el costo que tiene e indica cuantos servicios Economicos, Medios o Premium cuenta.
 ```sql
 -- 3.Consulta con CASE
 SELECT
@@ -595,6 +622,8 @@ ORDER BY price_category;
 Imagine una cosulta que el sistema va a necesitar para mostrar cierta información, o reporte o pantalla
 
 Crear una consulta con al menos 3 JOINs que analice información donde podría ser importante obtener un SET DIFFERENCE y un INTERSECTION
+
+En este caso, la consulta con al menos 3 JOINs, analiza la información de los planes, esto nos puede servir cuando se quiera filtrar la busqueda de planes, donde ofrecen tales tipos de servicios, o que tenga tal servicio pero otro no.
 ```sql
 -- Encuentra los planes que ofrecen tanto Gimnasios como Coworking (INTERSECTION)
 SELECT 
@@ -636,6 +665,8 @@ WHERE st.name = 'Coworking';
 ```
 
 Crear un procedimiento almacenado transaccional que llame a otro SP transaccional, el cual a su vez llame a otro SP transaccional. Cada uno debe modificar al menos 2 tablas. Se debe demostrar que es posible hacer COMMIT y ROLLBACK con ejemplos exitosos y fallidos sin que haya interrumpción de la ejecución correcta de ninguno de los SP en ninguno de los niveles del llamado.
+
+Para estos tres procedimientos almacenados se hará uso de las tablas de logs, donde se realizarán inserciones y modificaciones en esta, no obstante, para el manejo de fallo será con una variable, para facilitar las pruebas.
 ```sql
 -- 6. 3 niveles SP Transaccionales
 -- Nivel 3: inserta en sol_log_type y sol_log_severity, devuelve sus IDs
@@ -794,6 +825,8 @@ FROM sol_plans AS p
 FOR JSON PATH, ROOT('Planes');
 ```
 Podrá su base de datos soportar un SP transaccional que actualice los contratos de servicio de un proveedor, el proveedor podría ya existir o ser nuevo, si es nuevo, solo se inserta. Las condiciones del contrato del proveedor, deben ser suministradas por un Table-Valued Parameter (TVP), si las condiciones son sobre items existentes, entonces se actualiza o inserta realizando las modificacinoes que su diseño requiera, si son condiciones nuevas, entonces se insertan.
+
+Si puede soportarlo, como se puede observar usando las condiciones del contrato con TVP
 ```sql
 CREATE TYPE dbo.TVP_ContractCondition AS TABLE(
   ServiceID         INT           NOT NULL,  -- FK a sol_service
@@ -853,7 +886,7 @@ BEGIN
       WHERE contractid = @ContractId;
     END
 
-    -- c) MERGE en sol_conditions con PriceConfigID
+    -- c) MERGE en sol_conditions
     MERGE dbo.sol_conditions AS T
     USING @Conditions AS S
       ON T.serviceid=S.ServiceID AND T.conditiontypeid=S.ConditionTypeID
@@ -939,6 +972,7 @@ Select * from sol_conditions
 ```
 
 Crear un SELECT que genere un archivo CSV de datos basado en un JOIN entre dos tablas
+Donde las dos tablas son users y subscriptions, para ver las subscripciones de cada usuario
 ```sql
 -- 9. CSV
 SELECT
@@ -951,3 +985,5 @@ FOR XML RAW('row'), ROOT('rows'), TYPE
 ```
 
 Configurar una tabla de bitácora en otro servidor SQL Server accesible vía Linked Servers con impersonación segura desde los SP del sistema. Ahora haga un SP genérico para que cualquier SP en el servidor principal, pueda dejar bitácora en la nueva tabla que se hizo en el Linked Server.
+
+## **Concurrencia**
