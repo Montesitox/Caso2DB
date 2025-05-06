@@ -989,3 +989,49 @@ FOR XML RAW('row'), ROOT('rows'), TYPE
 Configurar una tabla de bitácora en otro servidor SQL Server accesible vía Linked Servers con impersonación segura desde los SP del sistema. Ahora haga un SP genérico para que cualquier SP en el servidor principal, pueda dejar bitácora en la nueva tabla que se hizo en el Linked Server.
 
 ## **Concurrencia**
+
+### **Casos y niveles de isolación**
+Reporte histórico general
+Cuando necesito generar un informe de todas las transacciones del año pasado, busco ante todo rendimiento y menor contención posible. Por eso yo optaría por READ UNCOMMITTED: me permite leer sin esperar a que otras sesiones terminen sus cambios, y evito bloqueos largos en tablas con millones de filas.
+
+Por qué no READ COMMITTED: ese nivel aún respeta los bloqueos de escritura, lo cual ralentizaría el reporte y no me protege de phantoms, así que pagaría costo por nada.
+
+Por qué no REPEATABLE READ: bloquea cada fila leída para que no cambie, pero yo no necesito ver el mismo valor toda la consulta—quiero volumen, no precisión absoluta.
+
+Por qué no SERIALIZABLE: sería excesivo; bloquearía rangos enteros e impediría la concurrencia de otras cargas o consultas del sistema.
+
+Cálculo del tipo de cambio “en un momento dado”
+Para fijar la tarifa del día en todos mis cálculos financieros, necesito garantizar que la fila de sol_exchangerates que leí no cambie hasta cerrar mi transacción. Por eso emplearía REPEATABLE READ: bloqueo esa fila y me aseguro de que no se modifique a mitad de mi proceso de facturación.
+
+Por qué no READ UNCOMMITTED: correría el riesgo de capturar un valor intermedio que luego se deshaga.
+
+Por qué no READ COMMITTED: aunque no vería datos sucios, sí podría leer un tipo de cambio y luego, en la misma transacción, recibir otro valor distinto si alguien lo actualiza.
+
+Por qué no SERIALIZABLE: sólo necesito que esa fila permanezca igual; no me importa si aparecen nuevas cotizaciones fuera de mi rango.
+
+Adquisición de planes mientras se actualizan los cupos
+Cuando dos (o más) usuarios compran simultáneamente un plan con espacios limitados, debo asegurar que el conteo de sol_plans.limit_people nunca me permita sobreventa. Aquí mi elección es SERIALIZABLE, porque bloquea rangos de datos: si leo “quedan 5 cupos” nadie más podrá leer o insertar otro mientras dure mi compra.
+
+Por qué no READ UNCOMMITTED: permitiría leer valores de cupos que estén a punto de revertirse, causando errores de lógica.
+
+Por qué no READ COMMITTED: dos sesiones podrían leer ambas “5 cupos” en paralelo y cada una decrementar a 4, agotando de más.
+
+Por qué no REPEATABLE READ: impide actualizar la misma fila, pero no bloquea nuevas inserciones o lecturas de rangos que pudieran solaparse.
+
+Cambios de precio durante suscripciones
+Al procesar renovaciones o altas de suscripción, quiero aplicar un precio consistente para todo el lote de cargos. REPEATABLE READ me da justo eso: puedo leer la configuración de precios al inicio y luego aplicar ese mismo valor sin que otra transacción lo modifique en medio.
+
+Por qué no READ UNCOMMITTED: arriesgaría tarifas a medio actualizar o sucias.
+
+Por qué no READ COMMITTED: las actualizaciones de precio posteriores a mi lectura saltarían al cálculo y generarían incoherencias.
+
+Por qué no SERIALIZABLE: no necesito bloquear filas enteras o rangos de configuración históricos; solo quiero fijar el valor leído.
+
+Agotamiento de existencias de algún beneficio
+Cuando consumo unidades de un beneficio (tokens, accesos, cupos extra) en sol_planfeatures o sol_featureusage, debo asegurarme de que nadie más las consuma en paralelo. Aquí SERIALIZABLE es lo correcto: impide “phantoms” y solapamientos, manteniendo un recuento exacto hasta confirmar mi transacción.
+
+Por qué no READ UNCOMMITTED: podría consumir unidades que luego se reviertan.
+
+Por qué no READ COMMITTED: dos procesos podrían leer el mismo stock y ambos descontar simultáneamente.
+
+Por qué no REPEATABLE READ: evitaría modificaciones a filas ya leídas, pero no impediría que se inserten o eliminen nuevas filas con stock en mi rango.
