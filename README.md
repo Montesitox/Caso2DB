@@ -25,7 +25,7 @@ Fecha de entrega: 6 de mayo de 2025
 # **Test de la base de datos**
 
 ## **Población de datos**
-Una vez aprobado el diseño de base de datos, ocupamos los scripts de llenado para la base de datos [Scripc de inserción completo](scripInsercion.sql)
+Una vez aprobado el diseño de base de datos, ocupamos los scripts de llenado para la base de datos [Script de inserción completo](scriptInsercion.sql)
 ```sql
 INSERT INTO sol_currencies(name, acronym, country, symbol)
 VALUES
