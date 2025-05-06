@@ -487,6 +487,7 @@ JOIN AssignedUsers au
 ## **Mantenimiento de la Seguridad**
 
 ## **Consultas Misceláneas**
+Ahora a continuación, unas consultas misceláneas, [Script de consultas misceláneas completo](scriptMiscelaneas.sql)
 Vista dinámica indexada con al menos 4 tablas
 Se creo una vista dinámica indexada de 4 tablas, users, subscriptions, plans y planfeatures, donde se va a poder observar a cuales planeas está asociada cada usuario y sus respectivas subscripciones
 ```sql
