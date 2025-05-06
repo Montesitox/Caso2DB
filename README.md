@@ -459,3 +459,8 @@ JOIN AssignedUsers au
 ```
 
 ## **Demostraciones T-SQL**
+
+## **Mantenimiento de la Seguridad**
+
+## **Consultas Misceláneas**
+Vista dinámica indexada con al menos 4 tablas
