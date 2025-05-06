@@ -25,3 +25,10 @@ Fecha de entrega: 6 de mayo de 2025
 # **Test de la base de datos**
 
 ## **Población de datos**
+
+```sql
+INSERT INTO sol_currencies(name, acronym, country, symbol)
+VALUES
+  ('Colón costarricense', 'CRC', 'Costa Rica', '₡'),
+  ('Dólar estadounidense', 'USD', 'Estados Unidos', '$');
+```
