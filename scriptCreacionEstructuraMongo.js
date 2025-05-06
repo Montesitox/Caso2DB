@@ -121,7 +121,7 @@ db.createCollection("customer_service", {
     }
   });
 
-
+// 3. Colección: content_pages
   db.createCollection("content_pages", {
 validator: {
     $jsonSchema: {
@@ -156,7 +156,7 @@ validator: {
 }
 });
 
-
+// 4. Colección: promotions
 db.createCollection("promotions", {
     validator: {
       $jsonSchema: {
@@ -173,6 +173,7 @@ db.createCollection("promotions", {
     }
   });
 
+// 5. Colección: reviews
 db.createCollection("reviews", {
     validator: {
       $jsonSchema: {
@@ -189,6 +190,7 @@ db.createCollection("reviews", {
     }
   });
 
+// 6. Colección: faq_articles
 db.createCollection("faq_articles", {
     validator: {
       $jsonSchema: {
