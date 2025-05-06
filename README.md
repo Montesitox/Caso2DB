@@ -1040,3 +1040,89 @@ Cuando consumo unidades de un beneficio (tokens, accesos, cupos extra) en sol_pl
 -READ COMMITTED: dos procesos podrían leer el mismo stock y ambos descontar simultáneamente.
 
 -REPEATABLE READ: evitaría modificaciones a filas ya leídas, pero no impediría que se inserten o eliminen nuevas filas con stock en mi rango.
+
+### **Cursor Update**
+
+En este caso se creara una tabla de pruebas para explicarlo mejor, con su respectiva inserción de datos
+```sql
+CREATE TABLE dbo.TestLocks (
+  Id    INT PRIMARY KEY,
+  Value VARCHAR(50)
+);
+
+INSERT INTO dbo.TestLocks (Id, Value)
+VALUES
+  (1, 'Alpha'),
+  (2, 'Bravo'),
+  (3, 'Charlie');
+GO
+```
+
+En una ventana aparte se ejecutará esta transaccion de un cursor que bloquea cada fila, hasta que pasen los 10 segundos y se haga commit 
+```sql
+SET NOCOUNT ON;
+BEGIN TRAN;                                  
+
+DECLARE @Id INT;
+DECLARE upd CURSOR LOCAL FOR
+  SELECT Id
+  FROM dbo.TestLocks
+  WHERE Value LIKE 'A%';                    
+
+OPEN upd;
+FETCH NEXT FROM upd INTO @Id;
+
+WHILE @@FETCH_STATUS = 0
+BEGIN
+  UPDATE dbo.TestLocks WITH (ROWLOCK, XLOCK)
+    SET Value = Value + '_Locked'
+  WHERE Id = @Id;
+
+  -- Pausa para dar tiempo a que SESIÓN 2 intente acceder
+  WAITFOR DELAY '00:00:10';
+
+  FETCH NEXT FROM upd INTO @Id;
+END
+
+CLOSE upd;
+DEALLOCATE upd;
+
+
+COMMIT;
+GO
+```
+
+En una ventana aparte se van a realizar diferentes pruebas, donde se intentara actualizar un registro que está bloqueado, seleccionar con nolock, que hace lectura de un registro bloqueado y otra actualizacion de un registro no bloqueado
+```sql
+-- 1) INTENTO DE UPDATE SOBRE LA MISMA FILA
+SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+BEGIN TRAN;
+  -- 'Intentando UPDATE sobre Id=1 (debe quedar BLOQUEADO hasta COMMIT de Sesión1)...';
+  UPDATE dbo.TestLocks
+    SET Value = 'Other'
+  WHERE Id = 1;
+ ROLLBACK;
+GO
+
+-- 2) SELECT CON NOLOCK (LECTURA SUCIA PERMITIDA)
+-- 'SELECT WITH (NOLOCK) sobre Id=1 (no bloquea, devuelve dato aunque esté locked)...';
+SELECT *
+FROM dbo.TestLocks WITH (NOLOCK)
+WHERE Id = 1;
+GO
+
+-- 3) UPDATE SOBRE OTRA FILA (no bloqueada por el cursor)
+BEGIN TRAN;
+  --'UPDATE sobre Id=2 (no está locked, debe ejecutarse inmediatamente)...';
+  UPDATE dbo.TestLocks
+    SET Value = 'Other2'
+  WHERE Id = 2;
+COMMIT;
+GO
+```
+
+En conclusión, cuando se pueden usar cursores?
+
+Cuando se necesita lógica por fila (llamadas a API, cálculos complejos). Teniendo en cuenta que, con XLOCK, cada fila queda bloqueada durante toda la transacción, lo cual puede degradar mucho la concurrencia.
+
+Para operaciones en batch que afectan muchas filas de forma similar, pes mejor usar un set-based UPDATE: un solo UPDATE con WHERE suele ser más rápido y genera menos contención de locks.
