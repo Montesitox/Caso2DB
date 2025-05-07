@@ -3141,3 +3141,66 @@ def migrate_schedules_and_details(df_paya_services):
 | 4                 | 4       | 0          | 2025-01-11 00:00:00  |               | DAY      | 3            | 2025-01-14 00:00:00.000 | 10        | America/Costa_Rica |
 | 5                 | 5       | 0          | 2024-01-01 00:00:00  |               | DAY      | 3            | 2024-02-03 00:00:00.000 | 11        | America/Costa_Rica |
 | 6                 | 6       | 0          | 2024-02-03 00:00:00  |               | DAY      | 3            | 2024-01-01 00:00:00.000 | 11        | America/Costa_Rica |
+
+## **Inserciones en MongoDB para el Banner de Adquisición**
+
+1. Inserción en content_pages: Anuncio oficial de la migración
+Esta inserción cumple con el esquema definido para content_pages, el cual exige campos obligatorios como slug, title, sections, published y updated_at. El documento insertado sigue esta estructura:
+
+- slug y title identifican la página de forma única y legible.
+
+- sections contiene un array con dos elementos:
+
+- - Un bloque de texto (type: "text") con el mensaje corporativo.
+
+- - Un banner (type: "banner") que cumple con los campos requeridos en el schema (image_url, start_date, end_date, cta_text, cta_link), asegurando coherencia visual y funcional en la UI.
+
+- published: true permite que el anuncio sea visible inmediatamente en producción.
+
+- updated_at registra la fecha de creación/modificación, útil para auditorías.
+
+```js
+db.content_pages.insertOne({
+    slug: "anuncio-adquisicion",
+    title: "Ahora somos Soltura",
+    sections: [
+      {
+        type: "text",
+        content: "Nos complace anunciar que a partir del 1 de junio de 2025, la plataforma Payment Assistant ahora forma parte de Soltura. Seguimos comprometidos con ofrecerte más beneficios en un solo lugar."
+      },
+      {
+        type: "banner",
+        title: "¡Payment Assistant ahora es Soltura!",
+        image_url: "https://cdn.soltura.com/media/adquisicion-banner.jpg",
+        start_date: ISODate("2025-04-01T00:00:00Z"),
+        end_date: ISODate("2025-07-01T00:00:00Z"),
+        cta_text: "Consulta la guía de pasos para el cambio",
+        cta_link: "https://www.soltura.com/guia-migracion-usuarios",
+      }
+    ],
+    published: true,
+    updated_at: new Date()
+  })
+```
+
+2. Inserción en media_assets: Recurso del banner
+Este documento almacena la imagen del banner en MongoDB, alineándose con el schema de media_assets que requiere type, url, description, migration_date y guide_link. Aunque el ejemplo muestra campos adicionales (tags, alt, uploaded_by), estos son opcionales según el schema.
+
+- type: "image" clasifica el recurso para filtros futuros.
+
+- url apunta al CDN donde está alojada la imagen, cumpliendo con el requisito de image_url en el schema.
+
+- alt mejora la accesibilidad (SEO y screen readers), aunque no es obligatorio en el schema.
+
+- uploaded_at equivale a migration_date en el contexto de la migración
+
+```js
+db.media_assets.insertOne({
+    type: "image",
+    url: "https://cdn.soltura.com/media/adquisicion-banner.jpg",
+    tags: ["adquisición", "home", "anuncio"],
+    alt: "Ahora somos parte de Soltura",
+    uploaded_by: "webmaster@soltura.com",
+    uploaded_at: new Date()
+  })
+```
