@@ -988,28 +988,82 @@ FOR XML RAW('row'), ROOT('rows'), TYPE
 
 Configurar una tabla de bitácora en otro servidor SQL Server accesible vía Linked Servers con impersonación segura desde los SP del sistema. Ahora haga un SP genérico para que cualquier SP en el servidor principal, pueda dejar bitácora en la nueva tabla que se hizo en el Linked Server.
 
+Creacion desde T-SQL el Linked Server, se puede realizar tambien por medio de la GUI
 ```sql
--- 10. En servidor principal:
-CREATE PROCEDURE dbo.usp_LogToRemote
-  @Msg NVARCHAR(4000)
-AS
-BEGIN
-  EXEC [RemoteServer].SolturaLogDB.dbo.usp_InsertLog @Msg;
-END;
+USE master;
 GO
 
--- En servidor remoto (Linked Server):
-CREATE PROCEDURE dbo.usp_InsertLog
-  @Msg NVARCHAR(4000)
-AS
+IF NOT EXISTS (SELECT * FROM sys.servers WHERE name = 'REMOTE_SRV')
 BEGIN
-  INSERT INTO dbo.LogTable(LogDate,Message)
-  VALUES(GETDATE(),@Msg);
-END;
+  EXEC sp_addlinkedserver 
+    @server     = N'REMOTE_SRV',
+    @srvproduct = N'',
+    @provider   = N'SQLNCLI',           -- proveedor OLE DB de SQL Server
+    @datasrc    = N'RemoteHostName';    -- nombre o IP del servidor remoto
+
+  EXEC sp_addlinkedsrvlogin
+    @rmtsrvname  = N'REMOTE_SRV',
+    @useself     = N'False',
+    @locallogin  = NULL,                -- todas las conexiones locales
+    @rmtuser     = N'remoteUser',       -- credenciales válidas en REMOTE_SRV
+    @rmtpassword = N'remotePassword';
+END
 GO
 
---Luego, desde cualquier SP en el servidor principal:
-EXEC dbo.usp_LogToRemote 'Mensaje de bitácora';
+EXEC sp_serveroption 
+  @server   = N'REMOTE_SRV', 
+  @optname  = N'rpc', 
+  @optvalue = N'true';
+
+-- Habilitar llamadas RPC salientes (desde este servidor hacia REMOTE_SRV)
+EXEC sp_serveroption 
+  @server   = N'REMOTE_SRV', 
+  @optname  = N'rpc out', 
+  @optvalue = N'true';
+GO
+```
+Ahora desde el servidor remoto dentro de soltura DB
+```sql
+EXECUTE(N'
+  IF OBJECT_ID(''SolturaDB.dbo.SystemLog'', ''U'') IS NOT NULL
+    DROP TABLE SolturaDB.dbo.SystemLog;
+
+  CREATE TABLE SolturaDB.dbo.SystemLog (
+    LogID     INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+    LogDate   DATETIME         NOT NULL,
+    Source    NVARCHAR(100)    NOT NULL,
+    Message   NVARCHAR(MAX)    NOT NULL
+  );
+') AT REMOTE_SRV;
+GO
+
+USE SolturaDB;
+GO
+
+CREATE OR ALTER PROCEDURE dbo.WriteRemoteLog
+  @Source  NVARCHAR(100),
+  @Message NVARCHAR(MAX),
+  @LogDate DATETIME = NULL
+WITH EXECUTE AS OWNER
+AS
+BEGIN
+  SET NOCOUNT, XACT_ABORT ON;
+
+  IF @LogDate IS NULL
+    SET @LogDate = GETDATE();
+
+  INSERT INTO REMOTE_SRV.SolturaDB.dbo.SystemLog
+    (LogDate, Source, Message)
+  VALUES
+    (@LogDate, @Source, @Message);
+END;
+GO
+```
+Ahora una vez realizado esto dentro de cualquier procedimiento de SolturaDB:
+```sql
+EXEC dbo.WriteRemoteLog
+  @Source  = 'NombreDelSP',
+  @Message = 'Descripción del evento que quiero registrar';
 ```
 
 ## **Concurrencia**
