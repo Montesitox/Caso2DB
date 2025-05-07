@@ -82,6 +82,120 @@ SELECT
   END AS price_category
 FROM sol_service;
 
+-- 4. Reporte Analítico: Rendimiento de Planes con Métricas de Suscripción, Pagos y Uso de Características
+USE SolturaDB;
+GO
+
+WITH SubscriptionsSummary AS (
+    -- CTE 1: Resumen de suscripciones por plan
+    SELECT 
+        p.planid,
+        p.name AS plan_name,
+        COUNT(s.subid) AS total_subscriptions,
+        SUM(CASE WHEN s.statusid = 1 THEN 1 ELSE 0 END) AS active_subscriptions,
+        AVG(DATEDIFF(DAY, s.startdate, s.enddate)) AS avg_duration_days
+    FROM 
+        dbo.sol_subscriptions s
+    JOIN 
+        dbo.sol_plans p ON s.planid = p.planid
+    GROUP BY 
+        p.planid, p.name
+),
+PaymentAnalysis AS (
+    -- CTE 2: Análisis de pagos por suscripción
+    SELECT 
+        sub.subid,
+        SUM(p.amount) AS total_paid,
+        AVG(p.amount) AS avg_payment,
+        COUNT(p.paymentid) AS payment_count,
+        MAX(p.date) AS last_payment_date
+    FROM 
+        dbo.sol_payments p
+    JOIN 
+        dbo.sol_paymentschedules ps ON p.paymentid = ps.paymentid
+    JOIN
+        dbo.sol_subscriptions sub ON ps.scheduleid = sub.scheduleid
+    WHERE 
+        p.statusid IN (SELECT paymentstatusid FROM dbo.sol_paymentstatus WHERE name IN ('Completado'))
+    GROUP BY 
+        sub.subid
+),
+FeatureUsageStats AS (
+    -- CTE 3: Estadísticas de uso de características
+    SELECT 
+        fu.subid,
+        fu.serviceid,
+        sv.name AS service_name,
+        SUM(fu.quantityused) AS total_usage,
+        AVG(fu.porcentageconsumed) AS avg_consumption
+    FROM 
+        dbo.sol_featureusage fu
+    JOIN 
+        dbo.sol_service sv ON fu.serviceid = sv.serviceid
+    GROUP BY 
+        fu.subid, fu.serviceid, sv.name
+)
+
+SELECT 
+    ss.planid,
+    ss.plan_name,
+    ss.total_subscriptions,
+    ss.active_subscriptions,
+    CONVERT(VARCHAR(10), ss.avg_duration_days) + ' days' AS avg_duration,
+    pp.amount AS current_plan_price,
+    COALESCE(SUM(pa.total_paid), 0) AS total_revenue,
+    COALESCE(AVG(pa.avg_payment), 0) AS avg_revenue_per_subscription,
+    (
+        SELECT COUNT(*) 
+        FROM dbo.sol_users u 
+        WHERE u.userid IN (
+            SELECT userid FROM dbo.sol_subscriptions WHERE planid = ss.planid
+        )
+    ) AS unique_users,
+    CASE 
+        WHEN ss.active_subscriptions > 0 THEN 'ACTIVE'
+        WHEN ss.total_subscriptions > 0 THEN 'INACTIVE'
+        ELSE 'NEW'
+    END AS plan_status,
+    (
+        SELECT TOP 1 sv.name 
+        FROM FeatureUsageStats fus 
+        JOIN dbo.sol_service sv ON fus.serviceid = sv.serviceid
+        WHERE fus.subid IN (
+            SELECT subid FROM dbo.sol_subscriptions WHERE planid = ss.planid
+        )
+        ORDER BY fus.total_usage DESC
+    ) AS most_used_feature
+FROM 
+    SubscriptionsSummary ss
+LEFT JOIN 
+    dbo.sol_planprices pp ON ss.planid = pp.planid AND pp.[current] = 1
+LEFT JOIN 
+    dbo.sol_subscriptions s ON ss.planid = s.planid
+LEFT JOIN 
+    PaymentAnalysis pa ON s.subid = pa.subid
+WHERE 
+    EXISTS (
+        SELECT 1 FROM dbo.sol_planfeatures pf 
+        WHERE pf.plantid = ss.planid AND pf.enabled = 1
+    )
+    AND ss.planid NOT IN (
+        SELECT planid FROM dbo.sol_plans WHERE enabled = 0
+    )
+GROUP BY 
+    ss.planid,
+    ss.plan_name,
+    ss.total_subscriptions,
+    ss.active_subscriptions,
+    ss.avg_duration_days,
+    pp.amount
+HAVING 
+    COALESCE(SUM(pa.total_paid), 0) > 0
+ORDER BY 
+    total_revenue DESC,
+    active_subscriptions DESC;
+GO
+
 -- 5. INTERSECT y SET DIFFERENCE
 -- Encuentra los planes que ofrecen tanto Gimnasios como Coworking (INTERSECTION)
 SELECT 

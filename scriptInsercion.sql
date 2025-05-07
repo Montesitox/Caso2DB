@@ -494,4 +494,79 @@ VALUES
   ('Tasa fija',                 'DECIMAL'),
   ('Duración en horas',         'INT');
 
+INSERT INTO sol_subscriptions (startdate, enddate, autorenew, statusid, scheduleid, userid, planid)
+VALUES
+    (DATEADD(DAY, -30, GETDATE()), DATEADD(YEAR, 1, GETDATE()), 1, 1, 3, 1, 1),
+    (DATEADD(DAY, -15, GETDATE()), DATEADD(YEAR, 1, GETDATE()), 1, 1, 3, 2, 2),
+    (DATEADD(DAY, -7, GETDATE()), DATEADD(YEAR, 1, GETDATE()), 1, 1, 3, 3, 3),
+    (DATEADD(MONTH, -6, GETDATE()), DATEADD(MONTH, -1, GETDATE()), 0, 3, 2, 4, 1),
+    (DATEADD(MONTH, -4, GETDATE()), DATEADD(MONTH, -2, GETDATE()), 0, 3, 2, 5, 2),
+    (DATEADD(MONTH, -12, GETDATE()), DATEADD(MONTH, -6, GETDATE()), 0, 2, 1, 6, 3),
+    (DATEADD(MONTH, -9, GETDATE()), DATEADD(MONTH, -3, GETDATE()), 0, 2, 1, 7, 4);
 
+INSERT INTO sol_available_pay_methods(name, token, exp_token, mask_account, idMethod)
+VALUES
+    ('Tarjeta Oro', 'tok_gold_XYZ789', DATEADD(YEAR, 1, GETDATE()), '****5678', 1),
+    ('PayPal Secundario', 'tok_paypal_ABC456', DATEADD(YEAR, 1, GETDATE()), 'backup@****.com', 3);
+
+INSERT INTO sol_payments (amount, taxamount, discountporcent, realamount, result, authcode, referencenumber, date, statusid, paymentmethodid, availablemethodid)
+VALUES
+    (50.00, 6.50, 0.00, 56.50, 'APPROVED', 'AUTH001', 'REF1001', DATEADD(DAY, -30, GETDATE()), 2, 1, 1),
+    (50.00, 6.50, 0.00, 56.50, 'APPROVED', 'AUTH002', 'REF1002', GETDATE(), 2, 1, 1),
+    (75.00, 9.75, 5.00, 80.75, 'APPROVED', 'AUTH003', 'REF2001', DATEADD(DAY, -15, GETDATE()), 2, 3, 3),
+    (100.00, 13.00, 10.00, 103.00, 'APPROVED', 'AUTH004', 'REF3001', DATEADD(DAY, -7, GETDATE()), 2, 1, 5),
+    (50.00, 6.50, 0.00, 56.50, 'APPROVED', 'AUTH005', 'REF4001', DATEADD(MONTH, -6, GETDATE()), 2, 1, 1),
+    (50.00, 6.50, 0.00, 56.50, 'APPROVED', 'AUTH006', 'REF4002', DATEADD(MONTH, -5, GETDATE()), 2, 1, 1),
+    (75.00, 9.75, 0.00, 84.75, 'APPROVED', 'AUTH007', 'REF5001', DATEADD(MONTH, -4, GETDATE()), 2, 3, 3),
+    (100.00, 13.00, 0.00, 113.00, 'APPROVED', 'AUTH008', 'REF6001', DATEADD(MONTH, -12, GETDATE()), 2, 1, 5),
+    (100.00, 13.00, 0.00, 113.00, 'APPROVED', 'AUTH009', 'REF6002', DATEADD(MONTH, -11, GETDATE()), 2, 1, 5),
+    (120.00, 15.60, 0.00, 135.60, 'APPROVED', 'AUTH010', 'REF7001', DATEADD(MONTH, -9, GETDATE()), 2, 1, 1);
+
+INSERT INTO sol_paymentschedules (paymentid, scheduleid, nextpayment, lastpayment, remainingpayments, active)
+VALUES
+    (1, 3, DATEADD(MONTH, 1, DATEADD(DAY, -30, GETDATE())), DATEADD(DAY, -30, GETDATE()), 11, 1),
+    (2, 3, DATEADD(MONTH, 2, GETDATE()), GETDATE(), 10, 1),
+    (3, 3, DATEADD(MONTH, 1, DATEADD(DAY, -15, GETDATE())), DATEADD(DAY, -15, GETDATE()), NULL, 1),
+    (4, 3, DATEADD(MONTH, 1, DATEADD(DAY, -7, GETDATE())), DATEADD(DAY, -7, GETDATE()), NULL, 1);
+
+INSERT INTO dbo.sol_subsmemberstypes (name)
+VALUES
+  ('Administrador'),
+  ('Invitado');
+
+INSERT INTO sol_subscriptionmembers (membertype, isactive, usersubid)
+VALUES
+    (1, GETDATE(), 1),
+    (1, GETDATE(), 2),
+    (1, GETDATE(), 3),
+    (1, DATEADD(MONTH, -6, GETDATE()), 4),
+    (1, DATEADD(MONTH, -4, GETDATE()), 5),
+    (1, DATEADD(MONTH, -12, GETDATE()), 6),
+    (1, DATEADD(MONTH, -9, GETDATE()), 7);
+
+INSERT INTO sol_accesscode (type, value, isactive, submembersid)
+VALUES
+    ('Gym Access', 0x01, 1, 3),
+    ('Premium Access', 0x04, 1, 4),
+    ('Coworking Access', 0x07, 1, 5);
+
+INSERT INTO sol_featureusage (quantityused, porcentageconsumed, location, subid, submembersid, serviceid, codeid)
+VALUES
+    (10, 50, 'Location A', 1, 3, 1, 7),
+    (5, 25, 'Location B', 1, 3, 2, 7),
+    (15, 75, 'Location C', 2, 4, 3, 8),
+    (20, 100, 'Location D', 2, 4, 4, 8),
+    (8, 40, 'Location E', 3, 3, 5, 8),
+    (12, 60, 'Location F', 4, 4, 1, 9),
+    (18, 90, 'Location G', 5, 5, 3, 9),
+    (7, 35, 'Location H', 6, 6, 5, 10),
+    (9, 45, 'Location I', 7, 7, 2, 10);
+
+INSERT INTO sol_planprices (amount, postTime, endDate, [current], planid)
+VALUES
+    (50.00, DATEADD(MONTH, -3, GETDATE()), DATEADD(MONTH, 3, GETDATE()), 0, 1),
+    (55.00, GETDATE(), DATEADD(YEAR, 1, GETDATE()), 1, 1),
+    (75.00, DATEADD(MONTH, -2, GETDATE()), DATEADD(MONTH, 4, GETDATE()), 1, 2),
+    (100.00, DATEADD(MONTH, -1, GETDATE()), DATEADD(MONTH, 5, GETDATE()), 1, 3),
+    (120.00, GETDATE(), DATEADD(YEAR, 1, GETDATE()), 1, 4);
+GO
