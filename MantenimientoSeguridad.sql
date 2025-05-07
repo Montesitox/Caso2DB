@@ -11,9 +11,9 @@ GO
 USE SolturaDB;
 GO
 
-CREATE USER [UsuarioSoloLectura] FOR LOGIN [UsuarioSoloLectura]; --podrá SELECT en todas las tablas
+CREATE USER [UsuarioSoloLectura] FOR LOGIN [UsuarioSoloLectura]; -- podrá SELECT en todas las tablas
 CREATE USER [UsuarioSinAcceso] FOR LOGIN [UsuarioSinAcceso];
-CREATE USER [UsuarioEjecutorSP] FOR LOGIN [UsuarioEjecutorSP]; --podrá ejecutar el SP pero no hacer SELECT directo en la tabla
+CREATE USER [UsuarioEjecutorSP] FOR LOGIN [UsuarioEjecutorSP]; -- podrá ejecutar el SP pero no hacer SELECT directo en la tabla
 CREATE USER [UsuarioRLS] FOR LOGIN [UsuarioRLS];
 GO
 
@@ -24,15 +24,22 @@ GO
 -- Crear roles
 CREATE ROLE [RolLecturaGeneral];
 CREATE ROLE [RolLecturaRestringida];
+CREATE ROLE [RolDenegacionSelect]; -- rol para negar SELECT a ciertas tablas
 GO
 
+-- Asignar usuarios a roles
 ALTER ROLE [RolLecturaGeneral] ADD MEMBER [UsuarioSoloLectura];
+ALTER ROLE [RolLecturaRestringida] ADD MEMBER [UsuarioEjecutorSP]; -- para mostrar el uso del rol con deny
 GO
 
+-- Permisos para roles
 GRANT SELECT ON SCHEMA::dbo TO [RolLecturaGeneral];
+GRANT SELECT ON OBJECT::[sol_users] TO [RolLecturaRestringida];
 GO
 
-GRANT SELECT ON OBJECT::[sol_users] TO [RolLecturaRestringida];
+-- Denegación de SELECT usando rol
+ALTER ROLE [RolDenegacionSelect] ADD MEMBER [UsuarioEjecutorSP];
+DENY SELECT ON OBJECT::[sol_users] TO [RolDenegacionSelect];
 GO
 
 -- 3. Permisos para SPs con restricción de tablas
@@ -45,9 +52,6 @@ END;
 GO
 
 GRANT EXECUTE ON OBJECT::[sp_GetUserInfo] TO [UsuarioEjecutorSP];
-GO
-
-DENY SELECT ON OBJECT::[sol_users] TO [UsuarioEjecutorSP];
 GO
 
 -- 4. Implementación de Row-Level Security (RLS)
@@ -67,6 +71,7 @@ VALUES
 ('UsuarioRLS', 1);
 GO
 
+-- Función de predicado de seguridad
 CREATE FUNCTION Security.fn_securitypredicate(@cityid AS INT)
 RETURNS TABLE
 WITH SCHEMABINDING
@@ -76,12 +81,14 @@ FROM Security.UserAccess
 WHERE USER_NAME() = username AND cityid = @cityid;
 GO
 
+-- Aplicar la política de seguridad
 CREATE SECURITY POLICY Security.UserFilter
 ADD FILTER PREDICATE Security.fn_securitypredicate(cityid)
 ON dbo.sol_cities
 WITH (STATE = ON);
 GO
 
+-- Permisos SELECT para usuario con RLS
 GRANT SELECT ON [sol_cities] TO [UsuarioRLS];
 GRANT SELECT ON [sol_address] TO [UsuarioRLS];
 GRANT SELECT ON [sol_users] TO [UsuarioRLS];
@@ -109,7 +116,7 @@ GO
 ALTER TABLE sol_users ADD email_cifrado VARBINARY(MAX);
 GO
 
--- Datos cifrados
+-- Cifrado de datos
 OPEN SYMMETRIC KEY LlaveSimetricaSoltura
 DECRYPTION BY CERTIFICATE CertificadoSoltura;
 

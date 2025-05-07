@@ -1,0 +1,43 @@
+CREATE TABLE dbo.TestLocks (
+  Id    INT PRIMARY KEY,
+  Value VARCHAR(50)
+);
+
+INSERT INTO dbo.TestLocks (Id, Value)
+VALUES
+  (1, 'Alpha'),
+  (2, 'Bravo'),
+  (3, 'Charlie');
+GO
+
+
+SET NOCOUNT ON;
+BEGIN TRAN;                                  
+
+DECLARE @Id INT;
+DECLARE upd CURSOR LOCAL FOR
+  SELECT Id
+  FROM dbo.TestLocks
+  WHERE Value LIKE 'A%';                    
+
+OPEN upd;
+FETCH NEXT FROM upd INTO @Id;
+
+WHILE @@FETCH_STATUS = 0
+BEGIN
+  UPDATE dbo.TestLocks WITH (ROWLOCK, XLOCK)
+    SET Value = Value + '_Locked'
+  WHERE Id = @Id;
+
+  -- Pausa para dar tiempo a que SESIÓN 2 intente acceder
+  WAITFOR DELAY '00:00:10';
+
+  FETCH NEXT FROM upd INTO @Id;
+END
+
+CLOSE upd;
+DEALLOCATE upd;
+
+
+COMMIT;
+GO

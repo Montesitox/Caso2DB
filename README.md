@@ -29,6 +29,7 @@ Ahora que ya Soltura cuenta con un diseño de base de datos aprobados por los in
 Una vez aprobado el diseño de base de datos, ocupamos los scripts de llenado para la base de datos [Script de inserción completo](scriptInsercion.sql)
 
 El sistema opera al menos con dos monedas
+Inserción senciila de dos monedas en la tabla sol_currencies
 ```sql
 INSERT INTO sol_currencies(name, acronym, country, symbol)
 VALUES
@@ -37,7 +38,7 @@ VALUES
 ```
 
 Cargar los catálogos base del sistema: tipos de servicios (gimnasios, salud, parqueos, etc.), tipos de planes, métodos de pago, monedas, estados de suscripción, etc.
-
+Se realiza inserción de datos, en tablas que son necesarias para la inserción de otras tablas.
 ```sql
 -- sol_servicetype
 INSERT INTO sol_servicetype(name)
@@ -203,7 +204,7 @@ VALUES
 ```
 
 Carga de al menos 40 usuarios en el sistema
-
+Se realizó un algoritmo para crear n cantidad de usuarios, usando variables, arreglos simulados y creaciones aleatorias para darle variedad a los usuarios y que no sean del mismo sitio o tengan el mismo nombre
 ```sql
 -- Creación de los Usuarios
 DECLARE @UserCount INT = 40;
@@ -253,6 +254,7 @@ END
 ```
 
 Llenar la tabla de planes de suscripción, con variaciones como: Joven deportista, Familia de Verano, Viajero frecuente, Nomada Digiital, etc.
+Se hace un llenado de planes para suscribirse.
 ```sql
 
 -- sol_plans
@@ -271,8 +273,12 @@ VALUES
 
 Incluir al menos 7 empresas proveedoras de servicios (Ya fueron incluidas anteriormente, esto para poder crear las API_integrations), cada uno ofreciendo 2 a 4 combinaciones de servicios que se deben usar para crear de 7 a 9 planes diferentes.
 En este script por medio de los contratos con los proveedores ya creados, se le asignara a cada proveedor de 2 a 4 servicios que brindar.
+Todo esto por medio de un algoritmo
+Primero se definen los dataTypes que va a ocupar cierto servicio en concreto
+Luego se definen las variables con las que vamos a crear los servicios, posteriormente se va usar cursor en la tabla de sol_contracts para que cada contrato con un proveedor ofrezca de 2 a 4 servicios
+De igual forma se utiliza aleatoridad para darle más variedad a los servicios.
 ```sql
--- Definir posibles tipos de servicio
+-- Definir posibles dataTypes
 DECLARE @ServiceTypes TABLE (typeid INT IDENTITY(1,1), typeName VARCHAR(50));
 INSERT INTO @ServiceTypes(typeName)
 VALUES
@@ -348,7 +354,8 @@ DEALLOCATE contract_cursor;
 
 SELECT * FROM dbo.sol_service
 ```
-Ahora con estos servicios creados, por medio de cursor y viendo los servicios creados a cada plan se le asignarán los diferentes servicios
+Ahora con estos servicios creados, por medio de cursor, a cada plan se le asignarán los diferentes servicios, tambien se realiza una insercion necesaria en la tabla quantitytypes por las llaves foraneas
+Este cursor es de la tabla sol_plans, donde en cada plan creado se le va a asociar los servicios anteriormente creados
 ```sql
 INSERT INTO sol_quantitytypes(typename,description,iscumulative)
 VALUES
@@ -413,7 +420,7 @@ Para cada plan de servicios, debe haber 3 a 6 subscripciones a usuarios diferent
 ```sql
 SET @UserCount = @UserCount - 5;
 
--- 2) Para cada uno de los 9 planes existentes, generar un número aleatorio de suscripciones (3–6)
+-- Para cada uno de los 9 planes existentes, generar un número aleatorio de suscripciones (3–6)
 DECLARE @PlanCounts TABLE (planid INT PRIMARY KEY, cnt INT);
 INSERT INTO @PlanCounts(planid,cnt)
 SELECT
@@ -421,28 +428,45 @@ SELECT
   ABS(CHECKSUM(NEWID(),planid)) % 4 + 3
 FROM sol_plans;
 
--- 3) Sumar totales y barajar usuarios 1..@UserCount
+-- 1) NumberedUsers: toma los primeros @UserCount números del sistema (1..@UserCount),
+--    los baraja al azar (ORDER BY NEWID()) y los expone como posibles userids.
 WITH NumberedUsers AS (
-  SELECT TOP(@UserCount) number AS userid
-  FROM master..spt_values
-  WHERE type='P' AND number BETWEEN 1 AND @UserCount
-  ORDER BY NEWID()
+    SELECT TOP(@UserCount)
+        number AS userid     -- cada número here representará un userid ficticio
+    FROM master..spt_values
+    WHERE type = 'P'
+      AND number BETWEEN 1 AND @UserCount
+    ORDER BY NEWID()         -- barajamos aleatoriamente el listado de usuarios
 ),
+-- 2) AssignedUsers: a esos userids aleatorios les asigna un ROW_NUMBER secuencial,
+--    para poder luego mapear rangos de filas a cada plan.
 AssignedUsers AS (
-  SELECT ROW_NUMBER() OVER(ORDER BY (SELECT NULL)) AS rownum, userid
-  FROM NumberedUsers
+    SELECT
+        ROW_NUMBER() OVER(ORDER BY (SELECT NULL)) AS rownum,  -- número de fila 1..@UserCount
+        userid                                               -- el userid barajado
+    FROM NumberedUsers
 ),
+-- 3) PlanSegments: para cada plan en @PlanCounts, calcula un rango
+--    [startRow, endRow] basado en sumas acumuladas de cnt.
+--    startRow = suma acumulada hasta este plan menos cnt + 1  
+--    endRow   = suma acumulada hasta este plan
 PlanSegments AS (
-  SELECT
-    planid,
-    cnt,
-    SUM(cnt) OVER(ORDER BY planid
-                  ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) - cnt + 1 AS startRow,
-    SUM(cnt) OVER(ORDER BY planid) AS endRow
-  FROM @PlanCounts
+    SELECT
+        planid,
+        cnt,
+        SUM(cnt) OVER (ORDER BY planid
+                       ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+          - cnt + 1   AS startRow,  -- primera fila asignada a este plan
+        SUM(cnt) OVER (ORDER BY planid
+                       ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+          AS endRow     -- última fila asignada a este plan
+    FROM @PlanCounts
 )
+-- Con estos segmentos y AssignedUsers ya podemos unir:
+--   ROW_NUMBER entre startRow y endRow → a ese plan
+--   y quedarle un userid único a cada subcripción.
 
--- 4) Insertar suscripciones asignando planid por registro
+-- Insertar suscripciones asignando planid por registro
 INSERT INTO sol_subscriptions
   (startdate, enddate, autorenew, statusid, scheduleid, userid, planid)
 SELECT
@@ -460,15 +484,108 @@ JOIN AssignedUsers au
 
 ## **Demostraciones T-SQL**
 
+-- ===============================================
+-- 1 y 2. CURSORES LOCAL Y GLOBAL
+-- ===============================================
+
+Los cursores permiten procesar filas una por una en T-SQL.
+- Cursor LOCAL: Solo visible en la sesión actual donde se declara
+- Cursor GLOBAL: Visible desde otras sesiones y procedimientos
+Esta demostración muestra la declaración, apertura, lectura y cierre de ambos tipos.
+
+DECLARE @planid INT, @planname VARCHAR(75);
+
+-- Cursores LOCAL solo visibles en la sesión actual
+DECLARE plan_cursor LOCAL CURSOR FOR 
+SELECT planid, name FROM sol_plans WHERE enabled = 1;
+
+DECLARE @userid INT, @username VARCHAR(100);
+
+-- Cursores GLOBAL visibles desde otras sesiones
+DECLARE user_cursor GLOBAL CURSOR FOR 
+SELECT userid, username FROM sol_users WHERE isActive = 1;
+
+
+OPEN plan_cursor;
+FETCH NEXT FROM plan_cursor INTO @planid, @planname;
+PRINT 'Primer plan (cursor LOCAL): ID=' + CAST(@planid AS VARCHAR) + ', Nombre=' + @planname;
+CLOSE plan_cursor;
+DEALLOCATE plan_cursor;
+
+OPEN user_cursor;
+FETCH NEXT FROM user_cursor INTO @userid, @username;
+PRINT 'Primer usuario (cursor GLOBAL): ID=' + CAST(@userid AS VARCHAR) + ', Usuario=' + @username;
+CLOSE user_cursor;
+
+DEALLOCATE user_cursor;
+GO
+
 ## **Mantenimiento de la Seguridad**
 
 ## **Consultas Misceláneas**
+Ahora a continuación, unas consultas misceláneas, [Script de consultas misceláneas completo](scriptMiscelaneas.sql)
+
 Vista dinámica indexada con al menos 4 tablas
+Se creo una vista dinámica indexada de 4 tablas, users, subscriptions, plans y planfeatures, donde se va a poder observar a cuales planeas está asociada cada usuario y sus respectivas subscripciones
+```sql
+-- 1. Crear la vista
+CREATE VIEW dbo.vw_UserSubscriptions
+WITH SCHEMABINDING
+AS
+SELECT
+    u.userid,
+    u.username,
+    s.subid,
+    s.planid,
+    p.name       AS plan_name,
+    COUNT_BIG(*) AS feature_count
+FROM dbo.sol_users       AS u
+JOIN dbo.sol_subscriptions AS s ON s.userid = u.userid
+JOIN dbo.sol_plans        AS p ON p.planid = s.planid
+JOIN dbo.sol_planfeatures AS pf ON pf.plantid = p.planid
+GROUP BY
+    u.userid,
+    u.username,
+    s.subid,
+    s.planid,
+    p.name;
+GO
+
+-- 2. Crear el índice único agrupado sobre la vista
+CREATE UNIQUE CLUSTERED INDEX IX_vw_UserSubscriptions
+    ON dbo.vw_UserSubscriptions(userid, subid, planid);
+GO
+```
+
+Para probar que la tabla es dinamica los siguientes scripts, donde se inserta una nueva subscripcion y de igual forma dicha vista agrega este registro.
 
 ```sql
+SELECT * 
+FROM dbo.vw_UserSubscriptions
+WHERE username = 'demo_user';
+GO
+
+-- 2) Insertar un usuario demo y capturar su UserID
+DECLARE @NewUserID INT;
+INSERT INTO dbo.sol_users (username, firstname, lastname, email, password, isActive, addressid)
+VALUES ('demo_user','Demo','User','demo@example.com',0x706173,1,1);
+SET @NewUserID = SCOPE_IDENTITY();
+
+-- 3) Insertar una suscripción para ese usuario y capturar SubID
+DECLARE @NewSubID INT;
+INSERT INTO dbo.sol_subscriptions (startdate, enddate, autorenew, statusid, scheduleid, planid, userid)
+VALUES (GETDATE(), DATEADD(MONTH,1,GETDATE()), 1, 1, 1, 1, @NewUserID);
+SET @NewSubID = SCOPE_IDENTITY();
+GO
+
+SELECT * 
+FROM dbo.vw_UserSubscriptions
+WHERE username = 'demo_user';
+GO
 ```
 
 Crear un procedimiento almacenado transaccional que realice una operación del sistema, relacionado a subscripciones, pagos, servicios, transacciones o planes, y que dicha operación requiera insertar y/o actualizar al menos 3 tablas.
+Dicho procedimiento almacenado crear una subscripcion mensual a un usuario y automaticamente registra el pago y la transaccion necesaria.
 ```sql
 -- 2. SP Transaccional
 CREATE PROCEDURE dbo.CrearSubscripcionMensual
@@ -520,6 +637,8 @@ EXEC dbo.CrearSubscripcionMensual @UserId=1,@PlanId=1,@Amount=200.00,@PaymentMet
 ```
 
 Escribir un SELECT que use CASE para crear una columna calculada que agrupe dinámicamente datos (por ejemplo, agrupar cantidades de usuarios por plan en rangos de monto, no use este ejemplo).
+
+En esta consulta, se decidió por agrupar todos los servicios que brinda Soltura según el costo que tiene e indica cuantos servicios Economicos, Medios o Premium cuenta.
 ```sql
 -- 3.Consulta con CASE
 SELECT
@@ -541,6 +660,8 @@ ORDER BY price_category;
 Imagine una cosulta que el sistema va a necesitar para mostrar cierta información, o reporte o pantalla
 
 Crear una consulta con al menos 3 JOINs que analice información donde podría ser importante obtener un SET DIFFERENCE y un INTERSECTION
+
+En este caso, la consulta con al menos 3 JOINs, analiza la información de los planes, esto nos puede servir cuando se quiera filtrar la busqueda de planes, donde ofrecen tales tipos de servicios, o que tenga tal servicio pero otro no.
 ```sql
 -- Encuentra los planes que ofrecen tanto Gimnasios como Coworking (INTERSECTION)
 SELECT 
@@ -582,6 +703,8 @@ WHERE st.name = 'Coworking';
 ```
 
 Crear un procedimiento almacenado transaccional que llame a otro SP transaccional, el cual a su vez llame a otro SP transaccional. Cada uno debe modificar al menos 2 tablas. Se debe demostrar que es posible hacer COMMIT y ROLLBACK con ejemplos exitosos y fallidos sin que haya interrumpción de la ejecución correcta de ninguno de los SP en ninguno de los niveles del llamado.
+
+Para estos tres procedimientos almacenados se hará uso de las tablas de logs, donde se realizarán inserciones y modificaciones en esta, no obstante, para el manejo de fallo será con una variable, para facilitar las pruebas.
 ```sql
 -- 6. 3 niveles SP Transaccionales
 -- Nivel 3: inserta en sol_log_type y sol_log_severity, devuelve sus IDs
@@ -740,6 +863,8 @@ FROM sol_plans AS p
 FOR JSON PATH, ROOT('Planes');
 ```
 Podrá su base de datos soportar un SP transaccional que actualice los contratos de servicio de un proveedor, el proveedor podría ya existir o ser nuevo, si es nuevo, solo se inserta. Las condiciones del contrato del proveedor, deben ser suministradas por un Table-Valued Parameter (TVP), si las condiciones son sobre items existentes, entonces se actualiza o inserta realizando las modificacinoes que su diseño requiera, si son condiciones nuevas, entonces se insertan.
+
+Si puede soportarlo, como se puede observar usando las condiciones del contrato con TVP
 ```sql
 CREATE TYPE dbo.TVP_ContractCondition AS TABLE(
   ServiceID         INT           NOT NULL,  -- FK a sol_service
@@ -799,7 +924,7 @@ BEGIN
       WHERE contractid = @ContractId;
     END
 
-    -- c) MERGE en sol_conditions con PriceConfigID
+    -- c) MERGE en sol_conditions
     MERGE dbo.sol_conditions AS T
     USING @Conditions AS S
       ON T.serviceid=S.ServiceID AND T.conditiontypeid=S.ConditionTypeID
@@ -885,6 +1010,7 @@ Select * from sol_conditions
 ```
 
 Crear un SELECT que genere un archivo CSV de datos basado en un JOIN entre dos tablas
+Donde las dos tablas son users y subscriptions, para ver las subscripciones de cada usuario
 ```sql
 -- 9. CSV
 SELECT
@@ -897,3 +1023,220 @@ FOR XML RAW('row'), ROOT('rows'), TYPE
 ```
 
 Configurar una tabla de bitácora en otro servidor SQL Server accesible vía Linked Servers con impersonación segura desde los SP del sistema. Ahora haga un SP genérico para que cualquier SP en el servidor principal, pueda dejar bitácora en la nueva tabla que se hizo en el Linked Server.
+
+Creacion desde T-SQL el Linked Server, se puede realizar tambien por medio de la GUI
+```sql
+USE master;
+GO
+
+IF NOT EXISTS (SELECT * FROM sys.servers WHERE name = 'REMOTE_SRV')
+BEGIN
+  EXEC sp_addlinkedserver 
+    @server     = N'REMOTE_SRV',
+    @srvproduct = N'',
+    @provider   = N'SQLNCLI',           -- proveedor OLE DB de SQL Server
+    @datasrc    = N'RemoteHostName';    -- nombre o IP del servidor remoto
+
+  EXEC sp_addlinkedsrvlogin
+    @rmtsrvname  = N'REMOTE_SRV',
+    @useself     = N'False',
+    @locallogin  = NULL,                -- todas las conexiones locales
+    @rmtuser     = N'remoteUser',       -- credenciales válidas en REMOTE_SRV
+    @rmtpassword = N'remotePassword';
+END
+GO
+
+EXEC sp_serveroption 
+  @server   = N'REMOTE_SRV', 
+  @optname  = N'rpc', 
+  @optvalue = N'true';
+
+-- Habilitar llamadas RPC salientes (desde este servidor hacia REMOTE_SRV)
+EXEC sp_serveroption 
+  @server   = N'REMOTE_SRV', 
+  @optname  = N'rpc out', 
+  @optvalue = N'true';
+GO
+```
+Ahora desde el servidor remoto dentro de soltura DB
+```sql
+EXECUTE(N'
+  IF OBJECT_ID(''SolturaDB.dbo.SystemLog'', ''U'') IS NOT NULL
+    DROP TABLE SolturaDB.dbo.SystemLog;
+
+  CREATE TABLE SolturaDB.dbo.SystemLog (
+    LogID     INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+    LogDate   DATETIME         NOT NULL,
+    Source    NVARCHAR(100)    NOT NULL,
+    Message   NVARCHAR(MAX)    NOT NULL
+  );
+') AT REMOTE_SRV;
+GO
+
+USE SolturaDB;
+GO
+
+CREATE OR ALTER PROCEDURE dbo.WriteRemoteLog
+  @Source  NVARCHAR(100),
+  @Message NVARCHAR(MAX),
+  @LogDate DATETIME = NULL
+WITH EXECUTE AS OWNER
+AS
+BEGIN
+  SET NOCOUNT, XACT_ABORT ON;
+
+  IF @LogDate IS NULL
+    SET @LogDate = GETDATE();
+
+  INSERT INTO REMOTE_SRV.SolturaDB.dbo.SystemLog
+    (LogDate, Source, Message)
+  VALUES
+    (@LogDate, @Source, @Message);
+END;
+GO
+```
+Ahora una vez realizado esto dentro de cualquier procedimiento de SolturaDB:
+```sql
+EXEC dbo.WriteRemoteLog
+  @Source  = 'NombreDelSP',
+  @Message = 'Descripción del evento que quiero registrar';
+```
+
+## **Concurrencia**
+
+### **Casos y niveles de isolación**
+1. Reporte histórico general
+
+Cuando necesito generar un informe de todas las transacciones del año pasado, busco ante todo rendimiento y menor contención posible. Por eso yo optaría por READ UNCOMMITTED: me permite leer sin esperar a que otras sesiones terminen sus cambios, y evito bloqueos largos en tablas con millones de filas.
+
+-READ COMMITTED: ese nivel aún respeta los bloqueos de escritura, lo cual ralentizaría el reporte y no me protege de phantoms, así que pagaría costo por nada.
+
+-REPEATABLE READ: bloquea cada fila leída para que no cambie, pero yo no necesito ver el mismo valor toda la consulta—quiero volumen, no precisión absoluta.
+
+-SERIALIZABLE: sería excesivo; bloquearía rangos enteros e impediría la concurrencia de otras cargas o consultas del sistema.
+
+2. Cálculo del tipo de cambio “en un momento dado”
+
+Para fijar la tarifa del día en todos mis cálculos financieros, necesito garantizar que la fila de sol_exchangerates que leí no cambie hasta cerrar mi transacción. Por eso emplearía REPEATABLE READ: bloqueo esa fila y me aseguro de que no se modifique a mitad de mi proceso de facturación.
+
+-READ UNCOMMITTED: correría el riesgo de capturar un valor intermedio que luego se deshaga.
+
+-READ COMMITTED: aunque no vería datos sucios, sí podría leer un tipo de cambio y luego, en la misma transacción, recibir otro valor distinto si alguien lo actualiza.
+
+-SERIALIZABLE: sólo necesito que esa fila permanezca igual; no me importa si aparecen nuevas cotizaciones fuera de mi rango.
+
+3. Adquisición de planes mientras se actualizan los cupos
+
+Cuando dos (o más) usuarios compran simultáneamente un plan con espacios limitados, debo asegurar que el conteo de sol_plans.limit_people nunca me permita sobreventa. Aquí mi elección es SERIALIZABLE, porque bloquea rangos de datos: si leo “quedan 5 cupos” nadie más podrá leer o insertar otro mientras dure mi compra.
+
+-READ UNCOMMITTED: permitiría leer valores de cupos que estén a punto de revertirse, causando errores de lógica.
+
+-READ COMMITTED: dos sesiones podrían leer ambas “5 cupos” en paralelo y cada una decrementar a 4, agotando de más.
+
+-REPEATABLE READ: impide actualizar la misma fila, pero no bloquea nuevas inserciones o lecturas de rangos que pudieran solaparse.
+
+4. Cambios de precio durante suscripciones
+   
+Al procesar renovaciones o altas de suscripción, quiero aplicar un precio consistente para todo el lote de cargos. REPEATABLE READ me da justo eso: puedo leer la configuración de precios al inicio y luego aplicar ese mismo valor sin que otra transacción lo modifique en medio.
+
+-READ UNCOMMITTED: arriesgaría tarifas a medio actualizar o sucias.
+
+-READ COMMITTED: las actualizaciones de precio posteriores a mi lectura saltarían al cálculo y generarían incoherencias.
+
+-SERIALIZABLE: no necesito bloquear filas enteras o rangos de configuración históricos; solo quiero fijar el valor leído.
+
+5. Agotamiento de existencias de algún beneficio
+   
+Cuando consumo unidades de un beneficio (tokens, accesos, cupos extra) en sol_planfeatures o sol_featureusage, debo asegurarme de que nadie más las consuma en paralelo. Aquí SERIALIZABLE es lo correcto: impide “phantoms” y solapamientos, manteniendo un recuento exacto hasta confirmar mi transacción.
+
+-READ UNCOMMITTED: podría consumir unidades que luego se reviertan.
+
+-READ COMMITTED: dos procesos podrían leer el mismo stock y ambos descontar simultáneamente.
+
+-REPEATABLE READ: evitaría modificaciones a filas ya leídas, pero no impediría que se inserten o eliminen nuevas filas con stock en mi rango.
+
+### **Cursor Update**
+
+En este caso se creara una tabla de pruebas para explicarlo mejor, con su respectiva inserción de datos
+```sql
+CREATE TABLE dbo.TestLocks (
+  Id    INT PRIMARY KEY,
+  Value VARCHAR(50)
+);
+
+INSERT INTO dbo.TestLocks (Id, Value)
+VALUES
+  (1, 'Alpha'),
+  (2, 'Bravo'),
+  (3, 'Charlie');
+GO
+```
+
+En una ventana aparte se ejecutará esta transaccion de un cursor que bloquea cada fila, hasta que pasen los 10 segundos y se haga commit 
+```sql
+SET NOCOUNT ON;
+BEGIN TRAN;                                  
+
+DECLARE @Id INT;
+DECLARE upd CURSOR LOCAL FOR
+  SELECT Id
+  FROM dbo.TestLocks
+  WHERE Value LIKE 'A%';                    
+
+OPEN upd;
+FETCH NEXT FROM upd INTO @Id;
+
+WHILE @@FETCH_STATUS = 0
+BEGIN
+  UPDATE dbo.TestLocks WITH (ROWLOCK, XLOCK)
+    SET Value = Value + '_Locked'
+  WHERE Id = @Id;
+
+  -- Pausa para dar tiempo a que SESIÓN 2 intente acceder
+  WAITFOR DELAY '00:00:10';
+
+  FETCH NEXT FROM upd INTO @Id;
+END
+
+CLOSE upd;
+DEALLOCATE upd;
+
+
+COMMIT;
+GO
+```
+
+En una ventana aparte se van a realizar diferentes pruebas, donde se intentara actualizar un registro que está bloqueado, seleccionar con nolock, que hace lectura de un registro bloqueado y otra actualizacion de un registro no bloqueado
+```sql
+-- 1) INTENTO DE UPDATE SOBRE LA MISMA FILA
+SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+BEGIN TRAN;
+  -- 'Intentando UPDATE sobre Id=1 (debe quedar BLOQUEADO hasta COMMIT de Sesión1)...';
+  UPDATE dbo.TestLocks
+    SET Value = 'Other'
+  WHERE Id = 1;
+ ROLLBACK;
+GO
+
+-- 2) SELECT CON NOLOCK (LECTURA SUCIA PERMITIDA)
+-- 'SELECT WITH (NOLOCK) sobre Id=1 (no bloquea, devuelve dato aunque esté locked)...';
+SELECT *
+FROM dbo.TestLocks WITH (NOLOCK)
+WHERE Id = 1;
+GO
+
+-- 3) UPDATE SOBRE OTRA FILA (no bloqueada por el cursor)
+BEGIN TRAN;
+  --'UPDATE sobre Id=2 (no está locked, debe ejecutarse inmediatamente)...';
+  UPDATE dbo.TestLocks
+    SET Value = 'Other2'
+  WHERE Id = 2;
+COMMIT;
+GO
+```
+
+En conclusión, cuando se pueden usar cursores?
+
+Cuando se necesita lógica por fila (llamadas a API, cálculos complejos). Teniendo en cuenta que, con XLOCK, cada fila queda bloqueada durante toda la transacción, lo cual puede degradar mucho la concurrencia.
+
+Para operaciones en batch que afectan muchas filas de forma similar, pes mejor usar un set-based UPDATE: un solo UPDATE con WHERE suele ser más rápido y genera menos contención de locks.
