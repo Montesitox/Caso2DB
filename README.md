@@ -14,6 +14,10 @@ II Semestre 2024
 
 Prof. Msc. Rodrigo Núñez Núñez
 
+Carlos José Ávalos Mendieta
+
+Carné: 2024207640
+
 José Julián Monge Brenes
 
 Carné: 2024247024
