@@ -484,6 +484,42 @@ JOIN AssignedUsers au
 
 ## **Demostraciones T-SQL**
 
+-- ===============================================
+-- 1 y 2. CURSORES LOCAL Y GLOBAL
+-- ===============================================
+
+Los cursores permiten procesar filas una por una en T-SQL.
+- Cursor LOCAL: Solo visible en la sesión actual donde se declara
+- Cursor GLOBAL: Visible desde otras sesiones y procedimientos
+Esta demostración muestra la declaración, apertura, lectura y cierre de ambos tipos.
+
+DECLARE @planid INT, @planname VARCHAR(75);
+
+-- Cursores LOCAL solo visibles en la sesión actual
+DECLARE plan_cursor LOCAL CURSOR FOR 
+SELECT planid, name FROM sol_plans WHERE enabled = 1;
+
+DECLARE @userid INT, @username VARCHAR(100);
+
+-- Cursores GLOBAL visibles desde otras sesiones
+DECLARE user_cursor GLOBAL CURSOR FOR 
+SELECT userid, username FROM sol_users WHERE isActive = 1;
+
+
+OPEN plan_cursor;
+FETCH NEXT FROM plan_cursor INTO @planid, @planname;
+PRINT 'Primer plan (cursor LOCAL): ID=' + CAST(@planid AS VARCHAR) + ', Nombre=' + @planname;
+CLOSE plan_cursor;
+DEALLOCATE plan_cursor;
+
+OPEN user_cursor;
+FETCH NEXT FROM user_cursor INTO @userid, @username;
+PRINT 'Primer usuario (cursor GLOBAL): ID=' + CAST(@userid AS VARCHAR) + ', Usuario=' + @username;
+CLOSE user_cursor;
+
+DEALLOCATE user_cursor;
+GO
+
 ## **Mantenimiento de la Seguridad**
 
 ## **Consultas Misceláneas**
