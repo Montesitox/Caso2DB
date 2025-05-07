@@ -1,7 +1,9 @@
 USE SolturaDB
 
+USE SolturaDB
+
 -- 1. Crear la vista
-CREATE VIEW dbo.vw_PagoSubscripciones
+CREATE VIEW dbo.vw_UserSubscriptions
 WITH SCHEMABINDING
 AS
 SELECT
@@ -9,21 +11,47 @@ SELECT
     u.username,
     s.subid,
     s.planid,
-    p.paymentid,
-    p.amount,
-    srv.serviceid,
-    srv.name AS service_name
+    p.name       AS plan_name,
+    COUNT_BIG(*) AS feature_count
 FROM dbo.sol_users       AS u
 JOIN dbo.sol_subscriptions AS s ON s.userid = u.userid
-JOIN dbo.sol_payments      AS p ON p.paymentid = s.userid
-JOIN dbo.sol_service       AS srv ON srv.contractid = p.statusid
+JOIN dbo.sol_plans        AS p ON p.planid = s.planid
+JOIN dbo.sol_planfeatures AS pf ON pf.plantid = p.planid
+GROUP BY
+    u.userid,
+    u.username,
+    s.subid,
+    s.planid,
+    p.name;
 GO
 
+-- Crear el índice único agrupado sobre la vista
+CREATE UNIQUE CLUSTERED INDEX IX_vw_UserSubscriptions
+    ON dbo.vw_UserSubscriptions(userid, subid, planid);
+GO
 
-CREATE UNIQUE CLUSTERED INDEX IX_vw_PagoSubscripciones 
-    ON dbo.vw_PagoSubscripciones(userid, subid, paymentid, serviceid);
+SELECT * 
+FROM dbo.vw_UserSubscriptions
+WHERE username = 'demo_user';
+GO
 
-SELECT * FROM dbo.vw_PagoSubscripciones
+-- 2) Insertar un usuario demo y capturar su UserID
+DECLARE @NewUserID INT;
+INSERT INTO dbo.sol_users (username, firstname, lastname, email, password, isActive, addressid)
+VALUES ('demo_user','Demo','User','demo@example.com',0x706173,1,1);
+SET @NewUserID = SCOPE_IDENTITY();
+
+-- 3) Insertar una suscripción para ese usuario y capturar SubID
+DECLARE @NewSubID INT;
+INSERT INTO dbo.sol_subscriptions (startdate, enddate, autorenew, statusid, scheduleid, planid, userid)
+VALUES (GETDATE(), DATEADD(MONTH,1,GETDATE()), 1, 1, 1, 1, @NewUserID);
+SET @NewSubID = SCOPE_IDENTITY();
+GO
+
+SELECT * 
+FROM dbo.vw_UserSubscriptions
+WHERE username = 'demo_user';
+GO
 
 -- 2. SP Transaccional
 CREATE PROCEDURE dbo.CrearSubscripcionMensual
@@ -72,15 +100,19 @@ SELECT * FROM sol_subscriptions
 
 -- 3.Consulta con CASE
 SELECT
-  serviceid,
-  name,
-  sale_amount,
-  CASE
-    WHEN sale_amount < 100    THEN 'Económico'
-    WHEN sale_amount BETWEEN 100 AND 200 THEN 'Medio'
-    ELSE 'Premium'
-  END AS price_category
-FROM sol_service;
+  price_category,
+  COUNT(*) AS cantidad_servicios
+FROM (
+  SELECT
+    CASE
+      WHEN sale_amount < 100               THEN 'Económico'
+      WHEN sale_amount BETWEEN 100 AND 200 THEN 'Medio'
+      ELSE 'Premium'
+    END AS price_category
+  FROM sol_service
+) AS sub
+GROUP BY price_category
+ORDER BY price_category;
 
 -- 4. Reporte Analítico: Rendimiento de Planes con Métricas de Suscripción, Pagos y Uso de Características
 USE SolturaDB;
@@ -556,23 +588,73 @@ JOIN sol_subscriptions s ON s.userid=u.userid
 FOR XML RAW('row'), ROOT('rows'), TYPE
 
 -- 10. En servidor principal: (No se si está bien así)
-CREATE PROCEDURE dbo.usp_LogToRemote
-  @Msg NVARCHAR(4000)
+USE master;
+GO
+
+IF NOT EXISTS (SELECT * FROM sys.servers WHERE name = 'REMOTE_SRV')
+BEGIN
+  EXEC sp_addlinkedserver 
+    @server     = N'REMOTE_SRV',
+    @srvproduct = N'',
+    @provider   = N'SQLNCLI',           -- proveedor OLE DB de SQL Server
+    @datasrc    = N'RemoteHostName';    -- nombre o IP del servidor remoto
+
+  EXEC sp_addlinkedsrvlogin
+    @rmtsrvname  = N'REMOTE_SRV',
+    @useself     = N'False',
+    @locallogin  = NULL,                -- todas las conexiones locales
+    @rmtuser     = N'remoteUser',       -- credenciales válidas en REMOTE_SRV
+    @rmtpassword = N'remotePassword';
+END
+GO
+
+EXEC sp_serveroption 
+  @server   = N'REMOTE_SRV', 
+  @optname  = N'rpc', 
+  @optvalue = N'true';
+
+-- Habilitar llamadas RPC salientes (desde este servidor hacia REMOTE_SRV)
+EXEC sp_serveroption 
+  @server   = N'REMOTE_SRV', 
+  @optname  = N'rpc out', 
+  @optvalue = N'true';
+GO
+
+EXECUTE(N'
+  IF OBJECT_ID(''SolturaDB.dbo.SystemLog'', ''U'') IS NOT NULL
+    DROP TABLE SolturaDB.dbo.SystemLog;
+
+  CREATE TABLE SolturaDB.dbo.SystemLog (
+    LogID     INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+    LogDate   DATETIME         NOT NULL,
+    Source    NVARCHAR(100)    NOT NULL,
+    Message   NVARCHAR(MAX)    NOT NULL
+  );
+') AT REMOTE_SRV;
+GO
+
+USE SolturaDB;
+GO
+
+CREATE OR ALTER PROCEDURE dbo.WriteRemoteLog
+  @Source  NVARCHAR(100),
+  @Message NVARCHAR(MAX),
+  @LogDate DATETIME = NULL
+WITH EXECUTE AS OWNER
 AS
 BEGIN
-  EXEC [RemoteServer].SolturaLogDB.dbo.usp_InsertLog @Msg;
+  SET NOCOUNT, XACT_ABORT ON;
+
+  IF @LogDate IS NULL
+    SET @LogDate = GETDATE();
+
+  INSERT INTO REMOTE_SRV.SolturaDB.dbo.SystemLog
+    (LogDate, Source, Message)
+  VALUES
+    (@LogDate, @Source, @Message);
 END;
 GO
 
--- En servidor remoto (Linked Server):
-CREATE PROCEDURE dbo.usp_InsertLog
-  @Msg NVARCHAR(4000)
-AS
-BEGIN
-  INSERT INTO dbo.LogTable(LogDate,Message)
-  VALUES(GETDATE(),@Msg);
-END;
-GO
-
---Luego, desde cualquier SP en el servidor principal:
-EXEC dbo.usp_LogToRemote 'Mensaje de bitácora';
+EXEC dbo.WriteRemoteLog
+  @Source  = 'NombreDelSP',
+  @Message = 'Descripción del evento que quiero registrar';
