@@ -390,48 +390,95 @@ def create_custom_plans_for_users(df_paya_services):
 
 create_custom_plans_for_users(df_paya_services)
 
-
-# ### Migración de Schedules
-
-# In[183]:
-
+# ==========================================================
+# 8. MIGRACIÓN DE FECHAS  
+# ==========================================================
 
 def migrate_schedules_and_details(df_paya_services):
-    # Obtener schedules originales
-    df_schedules = pd.read_sql("""
-        SELECT s.scheduleid, s.name, s.recurrencytype, 
-               s.repeat, s.endtype, s.repetitions, s.enddate
+    # Obtiene schedules originales con sus detalles
+    df_schedules_with_details = pd.read_sql("""
+        SELECT 
+            s.scheduleid as original_scheduleid,
+            s.name,
+            s.recurrencytype,
+            s.repeat,
+            s.endtype,
+            s.repetitions,
+            s.enddate,
+            sd.scheduledetailsid as original_detailid,
+            sd.basedate,
+            sd.datepart,
+            sd.lastexecution,
+            sd.nextexecution,
+            sd.deleted
         FROM paya_schedules s
         JOIN paya_scheduledetails sd ON s.scheduleid = sd.scheduleid
         JOIN paya_planprices pp ON sd.scheduledetailsid = pp.scheduledetailsid
         WHERE pp.current = 1
-        GROUP BY s.scheduleid
     """, engine_mysql)
-    
-    # Mapear a Soltura
+
+    # Mapear a estructura de Soltura para schedules principales
     df_soltura_schedules = pd.DataFrame({
-        'name': 'Migrado - ' + df_schedules['name'],
-        'description': 'Schedule migrado de PayAssistant',
-        'recurrencetypeid': df_schedules['recurrencytype'].map({
+        'name': 'Migrado - ' + df_schedules_with_details['name'],
+        'description': 'Schedule migrado de PayAssistant - ' + df_schedules_with_details['name'],
+        'recurrencetypeid': df_schedules_with_details['recurrencytype'].map({
             'MONTHLY': 3, 'YEARLY': 5, 'WEEKLY': 2, 'DAILY': 1
         }),
         'active': 1,
-        'interval': df_schedules['recurrencytype'].map({
+        'interval': df_schedules_with_details['recurrencytype'].map({
             'MONTHLY': 30, 'YEARLY': 365, 'WEEKLY': 7, 'DAILY': 1
         }),
         'startdate': pd.to_datetime('now'),
-        'endtype': df_schedules['endtype'],
-        'repetitions': df_schedules['repetitions']
-    })
-    
-    # Insertar schedules y detalles
+        'endtype': df_schedules_with_details['endtype'],
+        'repetitions': df_schedules_with_details['repetitions']
+    }).drop_duplicates()
+
+    # Insertar schedules y obtener IDs generados
     df_soltura_schedules.to_sql('sol_schedules', con=sqlserver_engine, if_exists='append', index=False)
     
-    # Obtener IDs para insertar los details
-    # [...] Similar lógica para los scheduledetails
+    # Obtener los IDs de los schedules recién insertados
+    with sqlserver_engine.connect() as conn:
+        result = conn.execute(
+            text("SELECT scheduleid, name FROM sol_schedules WHERE name LIKE 'Migrado - %'")
+        )
+        schedule_map = {row[1].replace('Migrado - ', ''): row[0] for row in result.fetchall()}
 
+    # Preparar los scheduledetails para migración
+    df_soltura_details = df_schedules_with_details.merge(
+        pd.DataFrame.from_dict(schedule_map, orient='index', columns=['newscheduleid']),
+        left_on='name',
+        right_index=True
+    )
+    
+    # Mapear a estructura de sol_scheduledetails
+    df_soltura_details_transformed = pd.DataFrame({
+        'deleted': df_soltura_details['deleted'].apply(lambda x: int.from_bytes(x, 'little') if isinstance(x, bytes) else int(x)),
+        'basedate': df_soltura_details['basedate'],
+        'datepart': df_soltura_details['datepart'],
+        'maxdelaydays': 3,  # Valor por defecto
+        'executiontime': df_soltura_details['lastexecution'],
+        'scheduleid': df_soltura_details['newscheduleid'],
+        'timezone': 'America/Costa_Rica'  # Ajustar según necesidad
+    })
 
-# In[ ]:
+    # 6. Insertar los scheduledetails
+    df_soltura_details_transformed.to_sql(
+        'sol_schedulesdetails', 
+        con=sqlserver_engine, 
+        if_exists='append', 
+        index=False
+    )
+
+    # 7. Retornar mapeo de IDs para referencia en otras migraciones
+    return {
+        'schedule_map': schedule_map,
+        'details_map': dict(zip(
+            df_soltura_details['original_detailid'],
+            df_soltura_details['newscheduleid']
+        ))
+    }
+
+schedule_mappings = migrate_schedules_and_details(df_paya_services)
 
 
 
