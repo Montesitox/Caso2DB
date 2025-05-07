@@ -19,11 +19,11 @@ Carlos José Ávalos Mendieta
 Carné: 2024207640
 
 José Julián Monge Brenes
-José Daniel Monterrosa Quirós
 
-Carné:
-2024247024
-2024084503
+Carné: 2024247024
+
+José Daniel Monterrosa Quirós
+Carné: 2024084503
 
 Rodrigo Sebastian Donoso Chaves
 
@@ -32,6 +32,14 @@ Carné: 2024070154
 Fecha de entrega: 6 de mayo de 2025
 
 # **Diseño de la base de datos**
+![Diagrama p1](image-1.png)
+![Diagrama p2](image-2.png)
+![Diagrama p3](image-3.png)
+![Diagrama p4](image-4.png)
+![Diagrama p5](image-5.png)
+![Diagrama p6](image-6.png)
+
+
 ```sql
 USE SolturaDB;
 GO
