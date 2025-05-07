@@ -25,6 +25,10 @@ Carné:
 2024247024
 2024084503
 
+Rodrigo Sebastian Donoso Chaves
+
+Carné: 2024070154
+
 Fecha de entrega: 6 de mayo de 2025
 
 # **Diseño de la base de datos**
@@ -2648,3 +2652,30 @@ En conclusión, cuando se pueden usar cursores?
 Cuando se necesita lógica por fila (llamadas a API, cálculos complejos). Teniendo en cuenta que, con XLOCK, cada fila queda bloqueada durante toda la transacción, lo cual puede degradar mucho la concurrencia.
 
 Para operaciones en batch que afectan muchas filas de forma similar, pes mejor usar un set-based UPDATE: un solo UPDATE con WHERE suele ser más rápido y genera menos contención de locks.
+
+La transaccion de volumen que se logra observar en la base de datos, es el procesamiento del uso de servicios por parte de los suscriptores, registrado principalmente en la tabla sol_featureusage. Esta operacion ocurre cada vez que un usuario utiliza algun servicio incluido en su suscripcion. Esta tabla, registra cada uso de un servicio por parte de un suscriptor. 
+
+Estrategias para triplicar el TPS:
+
+1. Optimizacion del Pool de conexiones:
+ - Aumentar el tamaño del pool de conexiones para reducir la contención.
+ - Ajustar tiempos de espera (idle_timeout, max_lifetime) para reutilizar conexiones eficientemente.
+2. Caching en la capa de aplicacion 
+ - Utilizar caché en memoria a nivel de aplicación para reducir consultas repetitivas
+ - Implementar un sistema de cola para procesar transacciones por lotes en lugar de individualmente
+3. Optimizar el patrón de acceso a datos:
+ - Implementar Bulk Insert para operaciones por lotes
+ - Utilizar Table-Valued Parameters para inserciones múltiples
+ - Minimizar round-trips entre la aplicación y la base de datos
+
+4. Particionamiento lógico de transacciones:
+
+ - Distribuir las transacciones por hora del día o región
+ - Implementar sharding lógico a nivel de aplicación
+
+5. Técnicas de programación avanzadas:
+
+ - Implementar un sistema de cola en memoria como RabbitMQ o Apache Kafka para regular el flujo de transacciones
+ - Utilizar técnicas como Command-Query Responsibility Segregation (CQRS)
+ - Implementar Eventual Consistency para operaciones no críticas
+ - 
