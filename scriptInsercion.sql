@@ -431,45 +431,11 @@ FROM PlanSegments ps
 JOIN AssignedUsers au
   ON au.rownum BETWEEN ps.startRow AND ps.endRow;
 
-SELECT * FROM sol_subscriptions
-
 INSERT INTO sol_paymentstatus(name)
 VALUES
   ('Pendiente'),
   ('Completado'),
   ('Fallido');
-
-INSERT INTO sol_payments
-  (amount
-  ,taxamount
-  ,discountporcent
-  ,realamount
-  ,result
-  ,authcode
-  ,referencenumber
-  ,chargetoken
-  ,date
-  ,checksum
-  ,statusid
-  ,paymentmethodid
-  ,availablemethodid)
-VALUES
-  (100.00         -- Monto base
-  ,13.00          -- Impuesto
-  ,5.00           -- % de descuento
-  ,108.00         -- Monto real (100 + 13 - 5)
-  ,'APPROVED'     -- Resultado
-  ,'AUTH123'      -- Código de autorización
-  ,'REF123456'    -- Número de referencia
-  ,0xFEEDFACE     -- Token de cargo (binario)
-  ,GETDATE()      -- Fecha
-  ,0xDEADC0DE     -- Checksum (binario)
-  ,2              -- statusid = Completado
-  ,1              -- paymentmethodid → Tarjeta Demo
-  ,1              -- availablemethodid → Tarjeta Demo disponible
-  );
-
-
 
 INSERT INTO sol_transactiontypes(name) VALUES
 ('Cobro'),('Reembolso'),('Ajuste');
@@ -503,11 +469,6 @@ VALUES
     (DATEADD(MONTH, -4, GETDATE()), DATEADD(MONTH, -2, GETDATE()), 0, 3, 2, 5, 2),
     (DATEADD(MONTH, -12, GETDATE()), DATEADD(MONTH, -6, GETDATE()), 0, 2, 1, 6, 3),
     (DATEADD(MONTH, -9, GETDATE()), DATEADD(MONTH, -3, GETDATE()), 0, 2, 1, 7, 4);
-
-INSERT INTO sol_available_pay_methods(name, token, exp_token, mask_account, idMethod)
-VALUES
-    ('Tarjeta Oro', 'tok_gold_XYZ789', DATEADD(YEAR, 1, GETDATE()), '****5678', 1),
-    ('PayPal Secundario', 'tok_paypal_ABC456', DATEADD(YEAR, 1, GETDATE()), 'backup@****.com', 3);
 
 INSERT INTO sol_payments (amount, taxamount, discountporcent, realamount, result, authcode, referencenumber, date, statusid, paymentmethodid, availablemethodid)
 VALUES

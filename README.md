@@ -15,12 +15,623 @@ II Semestre 2024
 Prof. Msc. Rodrigo Núñez Núñez
 
 José Julián Monge Brenes
+José Daniel Monterrosa Quirós
 
-Carné: 2024247024
+Carné:
+2024247024
+2024084503
 
 Fecha de entrega: 6 de mayo de 2025
 
 # **Diseño de la base de datos**
+```sql
+USE SolturaDB;
+GO
+
+-- 1) Tablas base sin dependenciaS
+CREATE TABLE dbo.sol_countries (
+  countryid INT IDENTITY(1, 1) NOT NULL PRIMARY KEY,
+  name VARCHAR(60)	NOT NULL,
+);
+
+CREATE TABLE dbo.sol_featuretype (
+  featuretypeid INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+  name          VARCHAR(50)      NOT NULL,
+  enabled       BIT              NOT NULL DEFAULT 1,
+  description   VARCHAR(255)     NULL
+);
+GO
+
+CREATE TABLE dbo.sol_log_source (
+  log_sourceid    INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+  name             VARCHAR(100)   NOT NULL,
+  system_component VARCHAR(100)   NOT NULL
+);
+GO
+
+CREATE TABLE dbo.sol_recurrencetypes (
+  recurrencetypeid INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+  name             VARCHAR(20)     NOT NULL
+);
+GO
+
+CREATE TABLE dbo.sol_category (
+  categoryid INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+  name       VARCHAR(75)       NOT NULL
+);
+GO
+
+CREATE TABLE dbo.sol_subsmemberstypes (
+  membertype INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+  name       VARCHAR(50)        NOT NULL
+);
+GO
+
+CREATE TABLE dbo.sol_subscriptionstatus (
+  statusid INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+  name     VARCHAR(20)      NOT NULL
+);
+GO
+
+CREATE TABLE dbo.sol_currencies (
+  currencyid INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+  name       VARCHAR(50)      NOT NULL,
+  acronym    VARCHAR(15)      NOT NULL,
+  country    VARCHAR(45)      NOT NULL,
+  symbol     VARCHAR(5)       NOT NULL
+);
+GO
+
+CREATE TABLE dbo.sol_languages (
+  languageid INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+  name       VARCHAR(50)      NOT NULL,
+  iso_code   CHAR(3)          NOT NULL
+);
+GO
+
+CREATE TABLE dbo.sol_transactiontypes (
+  transactiontypeid INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+  name              VARCHAR(30)      NOT NULL
+);
+GO
+
+CREATE TABLE dbo.sol_transactionsubtypes (
+  transactionsubtypeid INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+  name                 VARCHAR(30)      NOT NULL
+);
+GO
+
+CREATE TABLE dbo.sol_conditiontypes (
+  conditiontypeid INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+  name            VARCHAR(75)       NOT NULL,
+  datatype        VARCHAR(50)       NOT NULL
+);
+GO
+
+CREATE TABLE dbo.sol_servicetype (
+  servicetypeid INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+  name          VARCHAR(75)       NOT NULL,
+  description   VARCHAR(255)      NULL,
+  enabled       BIT               NOT NULL DEFAULT 1
+);
+GO
+
+CREATE TABLE dbo.sol_quantitytypes (
+  quantitytypeid INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+  typename       VARCHAR(50)        NOT NULL,
+  description    TEXT               NULL,
+  iscumulative   BIT                NOT NULL DEFAULT 1
+);
+GO
+
+CREATE TABLE dbo.sol_plans (
+  planid       INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+  name         VARCHAR(75)       NOT NULL,
+  description  TEXT              NULL,
+  customizable BIT               NOT NULL DEFAULT 1,
+  limit_people SMALLINT          NOT NULL,
+  enabled      BIT               NOT NULL DEFAULT 1,
+  codigoid     INT               NOT NULL
+);
+GO
+
+-- 2) Tablas con dependencias simples
+CREATE TABLE dbo.sol_states (
+  stateid   INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+  name      VARCHAR(60)      NOT NULL,
+  countryid INT              NOT NULL,
+  CONSTRAINT FK_sol_states_countryid FOREIGN KEY(countryid)
+    REFERENCES dbo.sol_countries(countryid)
+);
+GO
+
+CREATE TABLE dbo.sol_cities (
+  cityid  INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+  name    VARCHAR(60)      NOT NULL,
+  stateid INT              NOT NULL,
+  CONSTRAINT FK_sol_cities_stateid FOREIGN KEY(stateid)
+    REFERENCES dbo.sol_states(stateid)
+);
+GO
+
+CREATE TABLE dbo.sol_address (
+  addressid INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+  line1     VARCHAR(200)      NOT NULL,
+  line2     VARCHAR(200)      NULL,
+  zipcode   VARCHAR(9)        NOT NULL,
+  location  GEOGRAPHY         NOT NULL,
+  cityid    INT               NOT NULL,
+  CONSTRAINT FK_sol_address_cityid FOREIGN KEY(cityid)
+    REFERENCES dbo.sol_cities(cityid)
+);
+GO
+
+CREATE TABLE dbo.sol_users (
+  userid    INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+  username  VARCHAR(100)      NOT NULL,
+  firstname VARCHAR(100)      NOT NULL,
+  lastname  VARCHAR(100)      NOT NULL,
+  email     VARCHAR(150)      NOT NULL,
+  password  VARBINARY(250)    NOT NULL,
+  isActive  TINYINT           NOT NULL DEFAULT 1,
+  addressid INT               NOT NULL,
+  CONSTRAINT FK_sol_users_addressid FOREIGN KEY(addressid)
+    REFERENCES dbo.sol_address(addressid)
+);
+GO
+
+--CREATE TABLE dbo.sol_category(dummy INT);
+-- sol_category ya creada arriba
+--GO
+
+CREATE TABLE dbo.sol_providers (
+  providerid           INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+  brand_name           VARCHAR(100)      NOT NULL,
+  legal_name           VARCHAR(150)      NOT NULL,
+  legal_identification VARCHAR(50)       NOT NULL,
+  enabled              BIT               NOT NULL DEFAULT 1,
+  categoryId           INT               NOT NULL,
+  CONSTRAINT FK_sol_providers_categoryId FOREIGN KEY(categoryId)
+    REFERENCES dbo.sol_category(categoryid)
+);
+GO
+
+CREATE TABLE dbo.sol_contracts (
+  contractid  INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+  description VARCHAR(100)      NOT NULL,
+  start_date  DATE              NOT NULL,
+  end_date    DATE              NOT NULL,
+  enabled     BIT               NOT NULL DEFAULT 1,
+  providerid  INT               NOT NULL,
+  CONSTRAINT FK_sol_contracts_providerid FOREIGN KEY(providerid)
+    REFERENCES dbo.sol_providers(providerid)
+);
+GO
+
+CREATE TABLE dbo.api_integrations (
+  id            SMALLINT       IDENTITY(1,1) NOT NULL PRIMARY KEY,
+  name          VARCHAR(80)     NOT NULL,
+  public_key    VARCHAR(200)    NULL,
+  private_key   VARCHAR(200)    NULL,
+  url           VARCHAR(200)    NOT NULL,
+  creation_date DATETIME        NOT NULL,
+  last_update   DATETIME        NOT NULL,
+  enabled       BIT             NOT NULL DEFAULT 1,
+  idProvider    INT             NOT NULL,
+  CONSTRAINT FK_api_integrations_idProvider FOREIGN KEY(idProvider)
+    REFERENCES dbo.sol_providers(providerid)
+);
+GO
+
+CREATE TABLE dbo.sol_pay_methods (
+  id               INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+  name             VARCHAR(75)      NOT NULL,
+  secret_key       VARBINARY(255)   NOT NULL,
+  logo_icon_url    VARCHAR(200)     NULL,
+  enabled          BIT              NOT NULL DEFAULT 1,
+  idApiIntegration SMALLINT         NOT NULL,
+  CONSTRAINT FK_sol_pay_methods_idApiIntegration FOREIGN KEY(idApiIntegration)
+    REFERENCES dbo.api_integrations(id)
+);
+GO
+
+CREATE TABLE dbo.sol_available_pay_methods (
+  id           INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+  name         VARCHAR(50)      NOT NULL,
+  token        VARCHAR(255)     NOT NULL,
+  exp_token    DATE             NOT NULL,
+  mask_account VARCHAR(50)      NULL,
+  idMethod     INT              NOT NULL,
+  CONSTRAINT FK_sol_available_pay_methods_idMethod FOREIGN KEY(idMethod)
+    REFERENCES dbo.sol_pay_methods(id)
+);
+GO
+
+CREATE TABLE dbo.sol_paymentstatus (
+  paymentstatusid INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+  name            VARCHAR(50)          NOT NULL
+);
+GO
+
+CREATE TABLE dbo.sol_payments (
+  paymentid         INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+  amount            DECIMAL(10,2)     NOT NULL,
+  taxamount         DECIMAL(10,2)     NOT NULL,
+  discountporcent   DECIMAL(5,2)      NOT NULL,
+  realamount        DECIMAL(10,2)     NOT NULL,
+  result            VARCHAR(10)       NULL,
+  authcode          VARCHAR(100)      NULL,
+  referencenumber   VARCHAR(100)      NULL,
+  chargetoken       VARBINARY(200)    NULL,
+  date              DATETIME          NOT NULL,
+  checksum          VARBINARY(250)    NULL,
+  statusid          INT               NOT NULL,
+  paymentmethodid   INT               NOT NULL,
+  availablemethodid INT               NOT NULL,
+  CONSTRAINT FK_sol_payments_availablemethodid FOREIGN KEY(availablemethodid)
+    REFERENCES dbo.sol_available_pay_methods(id),
+  CONSTRAINT FK_sol_payments_paymentmethodid FOREIGN KEY(paymentmethodid)
+    REFERENCES dbo.sol_pay_methods(id),
+  CONSTRAINT FK_sol_payments_statusid FOREIGN KEY(statusid)
+    REFERENCES dbo.sol_paymentstatus(paymentstatusid)
+);
+GO
+
+CREATE TABLE dbo.sol_exchangerates (
+  exchangerateid      INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+  startdate           DATETIME         NOT NULL,
+  enddate             DATETIME         NULL,
+  exchangerate        DECIMAL(10,4)    NOT NULL,
+  currentexchangerate BIT              NOT NULL DEFAULT 1,
+  currencyidsource    INT               NOT NULL,
+  currencyiddestiny   INT               NOT NULL,
+  CONSTRAINT FK_sol_exchangerates_currencyidsource FOREIGN KEY(currencyidsource)
+    REFERENCES dbo.sol_currencies(currencyid),
+  CONSTRAINT FK_sol_exchangerates_currencyiddestiny FOREIGN KEY(currencyiddestiny)
+    REFERENCES dbo.sol_currencies(currencyid)
+);
+GO
+
+CREATE TABLE dbo.sol_schedules (
+  scheduleid       INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+  name             VARCHAR(100)     NOT NULL,
+  description      TEXT             NULL,
+  recurrencetypeid INT              NOT NULL,
+  active           BIT              NOT NULL DEFAULT 1,
+  interval         INT              NOT NULL,
+  startdate        DATETIME         NOT NULL,
+  endtype          VARCHAR(20)      NOT NULL CHECK(endtype IN('DATE','REPETITIONS','NEVER')),
+  repetitions      INT              NULL,
+  CONSTRAINT FK_sol_schedules_recurrencetypeid FOREIGN KEY(recurrencetypeid)
+    REFERENCES dbo.sol_recurrencetypes(recurrencetypeid)
+);
+GO
+
+CREATE TABLE dbo.sol_schedulesdetails (
+  scheduledetailid INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+  deleted          BIT              NOT NULL DEFAULT 1,
+  basedate         DATETIME         NOT NULL,
+  datepart         VARCHAR(20)      NOT NULL,
+  maxdelaydays     INT              NOT NULL,
+  executiontime    DATETIME         NULL,
+  scheduleid       INT              NOT NULL,
+  timezone         VARCHAR(50)      NOT NULL,
+  CONSTRAINT FK_sol_schedulesdetails_scheduleid FOREIGN KEY(scheduleid)
+    REFERENCES dbo.sol_schedules(scheduleid)
+);
+GO
+
+CREATE TABLE dbo.sol_paymentschedules (
+  paymentscheduleid INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+  paymentid         INT              NOT NULL,
+  scheduleid        INT              NOT NULL,
+  nextpayment       DATETIME         NOT NULL,
+  lastpayment       DATETIME         NULL,
+  remainingpayments INT              NULL,
+  active            BIT              NOT NULL DEFAULT 1,
+  CONSTRAINT FK_sol_paymentschedules_scheduleid FOREIGN KEY(scheduleid)
+    REFERENCES dbo.sol_schedules(scheduleid),
+  CONSTRAINT FK_sol_paymentschedules_paymentid FOREIGN KEY(paymentid)
+    REFERENCES dbo.sol_payments(paymentid)
+);
+GO
+
+CREATE TABLE dbo.sol_subscriptions (
+  subid      INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+  startdate  DATETIME          NOT NULL,
+  enddate    DATETIME          NOT NULL,
+  autorenew  BIT               NOT NULL DEFAULT 1,
+  statusid   INT               NOT NULL,
+  scheduleid INT               NOT NULL,
+  planid     INT               NOT NULL,
+  userid     INT               NOT NULL,
+  CONSTRAINT FK_sol_subscriptions_statusid FOREIGN KEY(statusid)
+    REFERENCES dbo.sol_subscriptionstatus(statusid),
+  CONSTRAINT FK_sol_subscriptions_scheduleid FOREIGN KEY(scheduleid)
+    REFERENCES dbo.sol_schedules(scheduleid),
+  CONSTRAINT FK_sol_subscriptions_planid FOREIGN KEY(planid)
+    REFERENCES dbo.sol_plans(planid),
+  CONSTRAINT FK_sol_subscriptions_userid FOREIGN KEY(userid)
+    REFERENCES dbo.sol_users(userid)
+);
+GO
+
+CREATE TABLE dbo.sol_subscriptionmembers (
+  submembersid INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+  membertype   INT               NOT NULL,
+  isactive     DATETIME          NOT NULL,
+  usersubid    INT               NOT NULL,
+  CONSTRAINT FK_sol_subscriptionmembers_membertype FOREIGN KEY(membertype)
+    REFERENCES dbo.sol_subsmemberstypes(membertype),
+  CONSTRAINT FK_sol_subscriptionmembers_usersubid FOREIGN KEY(usersubid)
+    REFERENCES dbo.sol_subscriptions(subid)
+);
+GO
+
+CREATE TABLE dbo.sol_accesscode (
+  codeid       INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+  type         VARCHAR(100)     NOT NULL,
+  value        VARBINARY        NOT NULL,
+  isactive     BIT              NOT NULL DEFAULT 1,
+  expirydate   TIMESTAMP        NOT NULL,
+  submembersid INT              NOT NULL,
+  CONSTRAINT FK_sol_accesscode_submembersid FOREIGN KEY(submembersid)
+    REFERENCES dbo.sol_subscriptionmembers(submembersid)
+);
+GO
+
+CREATE TABLE dbo.sol_price_configurations (
+  price_config_id INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+  provider_price  DECIMAL(10,2)      NOT NULL,
+  margin_type     VARCHAR(10)        NOT NULL,
+  margin_value    DECIMAL(10,2)      NOT NULL,
+  soltura_percent DECIMAL(5,2)       NOT NULL,
+  client_percent  DECIMAL(5,2)       NOT NULL
+);
+GO
+
+CREATE TABLE dbo.sol_service (
+  serviceid       INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+  name            VARCHAR(100)      NOT NULL,
+  description     VARCHAR(100)      NOT NULL,
+  dataType        VARCHAR(50)       NOT NULL,
+  original_amount DECIMAL(10,2)     NOT NULL,
+  sale_amount     DECIMAL(10,2)     NOT NULL,
+  enabled         BIT               NOT NULL DEFAULT 1,
+  contractid      INT               NOT NULL,
+  currencyid      INT               NOT NULL,
+  servicetypeid   INT               NOT NULL,
+  price_config_id INT               NOT NULL,
+  CONSTRAINT FK_sol_service_contractid       FOREIGN KEY(contractid)      REFERENCES dbo.sol_contracts(contractid),
+  CONSTRAINT FK_sol_service_currencyid       FOREIGN KEY(currencyid)      REFERENCES dbo.sol_currencies(currencyid),
+  CONSTRAINT FK_sol_service_servicetypeid    FOREIGN KEY(servicetypeid)   REFERENCES dbo.sol_servicetype(servicetypeid),
+  CONSTRAINT FK_sol_service_priceconfig      FOREIGN KEY(price_config_id) REFERENCES dbo.sol_price_configurations(price_config_id)
+);
+GO
+
+CREATE TABLE dbo.sol_conditions (
+  conditionid       INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+  description       VARCHAR(100)     NOT NULL,
+  conditiontypeid   INT               NOT NULL,
+  quantity_condition VARCHAR(100)    NOT NULL,
+  discount          DECIMAL(5,2)     NOT NULL,
+  amount_to_pay     DECIMAL(10,2)    NOT NULL,
+  enabled           BIT              NOT NULL DEFAULT 1,
+  serviceid         INT               NOT NULL,
+  price_config_id   INT               NOT NULL,
+  CONSTRAINT FK_sol_conditions_conditiontypeid FOREIGN KEY(conditiontypeid)
+    REFERENCES dbo.sol_conditiontypes(conditiontypeid),
+  CONSTRAINT FK_sol_conditions_serviceid       FOREIGN KEY(serviceid)
+    REFERENCES dbo.sol_service(serviceid),
+  CONSTRAINT FK_sol_conditions_priceconfig     FOREIGN KEY(price_config_id)
+    REFERENCES dbo.sol_price_configurations(price_config_id)
+);
+GO
+
+CREATE TABLE dbo.sol_planprices (
+  planpricesid INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+  amount       DECIMAL(10,2)     NOT NULL,
+  postTime     DATETIME          NOT NULL,
+  endDate      DATE              NOT NULL,
+  [current]    BIT               NOT NULL DEFAULT 1,
+  planid       INT               NOT NULL,
+  CONSTRAINT FK_sol_planprices_planid FOREIGN KEY(planid)
+    REFERENCES dbo.sol_plans(planid)
+);
+GO
+
+CREATE TABLE dbo.sol_planfeatures (
+  planfeatureid INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+  value          VARCHAR(100)      NOT NULL,
+  enabled        INT               NOT NULL DEFAULT 1,
+  quantitytypeid INT               NOT NULL,
+  serviceid      INT               NOT NULL,
+  plantid        INT               NOT NULL,
+  CONSTRAINT FK_sol_planfeatures_quantitytypeid FOREIGN KEY(quantitytypeid)
+    REFERENCES dbo.sol_quantitytypes(quantitytypeid),
+  CONSTRAINT FK_sol_planfeatures_serviceid FOREIGN KEY(serviceid)
+    REFERENCES dbo.sol_service(serviceid),
+  CONSTRAINT FK_sol_planfeatures_plantid FOREIGN KEY(plantid)
+    REFERENCES dbo.sol_plans(planid)
+);
+GO
+
+CREATE TABLE dbo.sol_featureusage (
+  featureusageid     INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+  quantityused       DECIMAL          NOT NULL,
+  porcentageconsumed DECIMAL          NOT NULL,
+  usagedate          TIMESTAMP        NULL,
+  location           VARCHAR(255)     NULL,
+  notes              TEXT             NULL,
+  subid              INT               NOT NULL,
+  submembersid       INT               NOT NULL,
+  serviceid          INT               NOT NULL,
+  codeid             INT               NOT NULL,
+  CONSTRAINT FK_sol_featureusage_subid       FOREIGN KEY(subid)
+    REFERENCES dbo.sol_subscriptions(subid),
+  CONSTRAINT FK_sol_featureusage_submembersid FOREIGN KEY(submembersid)
+    REFERENCES dbo.sol_subscriptionmembers(submembersid),
+  CONSTRAINT FK_sol_featureusage_serviceid    FOREIGN KEY(serviceid)
+    REFERENCES dbo.sol_service(serviceid),
+  CONSTRAINT FK_sol_featureusage_codeid       FOREIGN KEY(codeid)
+    REFERENCES dbo.sol_accesscode(codeid)
+);
+GO
+
+CREATE TABLE dbo.sol_user_preferences (
+  user_preferencesid INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+  languageid         INT               NOT NULL,
+  currencyid         INT               NOT NULL,
+  userid             INT               NOT NULL,
+  CONSTRAINT FK_sol_user_preferences_currencyid FOREIGN KEY(currencyid)
+    REFERENCES dbo.sol_languages(languageid),
+  CONSTRAINT FK_sol_user_preferences_userid FOREIGN KEY(userid)
+    REFERENCES dbo.sol_users(userid)
+);
+GO
+
+CREATE TABLE dbo.sol_log_severity (
+  log_severityid INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+  name           VARCHAR(50)       NOT NULL,
+  severity_level BIT               NOT NULL DEFAULT 1
+);
+GO
+
+CREATE TABLE dbo.sol_log_type (
+  log_typeid INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+  name       VARCHAR(100)    NOT NULL,
+  description TEXT           NULL
+);
+GO
+
+CREATE TABLE dbo.sol_logs (
+  logid            INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+  description      VARCHAR(200)     NOT NULL,
+  posttime         DATETIME         NOT NULL,
+  computer         VARCHAR(100)     NOT NULL,
+  trace            TEXT             NULL,
+  reference_id1    BIGINT           NULL,
+  reference_id2    BIGINT           NULL,
+  value1           VARCHAR(180)     NULL,
+  value2           VARCHAR(180)     NULL,
+  checksum         VARCHAR(45)      NOT NULL,
+  log_typeid       INT              NOT NULL,
+  log_sourceid     INT              NOT NULL,
+  log_severityid   INT              NOT NULL,
+  CONSTRAINT FK_sol_logs_log_typeid FOREIGN KEY(log_typeid)
+    REFERENCES dbo.sol_log_type(log_typeid),
+  CONSTRAINT FK_sol_logs_log_sourceid FOREIGN KEY(log_sourceid)
+    REFERENCES dbo.sol_log_source(log_sourceid),
+  CONSTRAINT FK_sol_logs_log_severityid FOREIGN KEY(log_severityid)
+    REFERENCES dbo.sol_log_severity(log_severityid)
+);
+GO
+
+CREATE TABLE dbo.sol_contact_types (
+  contact_typeid INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+  name           VARCHAR(50)     NOT NULL,
+  description    VARCHAR(255)    NULL,
+  isActive       TINYINT         NOT NULL DEFAULT 1
+);
+GO
+
+CREATE TABLE dbo.sol_contact_info (
+  contact_infoid INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+  value          VARCHAR(255)    NOT NULL,
+  notes          VARCHAR(255)    NULL,
+  enabled        BIT             NOT NULL DEFAULT 1,
+  userid         INT             NOT NULL,
+  contact_typeid INT             NOT NULL,
+  CONSTRAINT FK_sol_contact_info_userid FOREIGN KEY(userid)
+    REFERENCES dbo.sol_users(userid),
+  CONSTRAINT FK_sol_contact_info_contact_typeid FOREIGN KEY(contact_typeid)
+    REFERENCES dbo.sol_contact_types(contact_typeid)
+);
+GO
+
+CREATE TABLE dbo.sol_contact_info_providers (
+  contactinfoproviderid INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+  value                 VARCHAR(100)         NOT NULL,
+  last_update           DATETIME             NOT NULL,
+  idProvider            INT                  NOT NULL,
+  idUser                INT                  NOT NULL,
+  idContactType         INT                  NOT NULL,
+  enabled               BIT                  NOT NULL DEFAULT 1,
+  CONSTRAINT FK_sol_contact_info_providers_providerid FOREIGN KEY(idProvider)
+    REFERENCES dbo.sol_providers(providerid),
+  CONSTRAINT FK_sol_contact_info_providers_userid FOREIGN KEY(idUser)
+    REFERENCES dbo.sol_users(userid),
+  CONSTRAINT FK_sol_contact_info_providers_contact_type FOREIGN KEY(idContactType)
+    REFERENCES dbo.sol_contact_types(contact_typeid)
+);
+GO
+
+CREATE TABLE dbo.sol_migrated_users (
+  userid            INT NOT NULL PRIMARY KEY,
+  platform_name     VARCHAR(100) NOT NULL DEFAULT 'Payment Assistant',
+  password_changed  BIT NOT NULL DEFAULT 0,
+  CONSTRAINT FK_migrated_user FOREIGN KEY(userid)
+    REFERENCES dbo.sol_users(userid)
+);
+GO
+
+CREATE TABLE dbo.sol_modules (
+  moduleid TINYINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+  name VARCHAR(50) NOT NULL
+);
+GO
+
+CREATE TABLE dbo.sol_roles (
+  roleid INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+  rolename VARCHAR(45) NOT NULL,
+  description VARCHAR(100) NOT NULL,
+  asignationdate DATETIME NOT NULL DEFAULT GETDATE(),
+  is_system_role BIT NOT NULL DEFAULT 0
+);
+GO
+
+CREATE TABLE dbo.sol_permissions (
+  permissionid INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+  permissioncode VARCHAR(10) NOT NULL,
+  description VARCHAR(100) NOT NULL,
+  htmlObjectid VARCHAR(250) NOT NULL,
+  moduleid TINYINT NOT NULL,
+  CONSTRAINT FK_sol_permissions_moduleid FOREIGN KEY (moduleid)
+    REFERENCES dbo.sol_modules (moduleid)
+);
+GO
+
+CREATE TABLE dbo.sol_rolespermissions (
+  rolepermissionsid INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+  asignationdate DATETIME NOT NULL DEFAULT GETDATE(),
+  enable BIT NOT NULL DEFAULT 1,
+  deleted BIT NOT NULL DEFAULT 0,
+  lastupdate DATETIME NOT NULL DEFAULT GETDATE(),
+  checksum VARBINARY(250) NOT NULL,
+  roleid INT NOT NULL,
+  permissionid INT NOT NULL,
+  CONSTRAINT FK_sol_rolespermissions_roleid FOREIGN KEY (roleid)
+    REFERENCES dbo.sol_roles (roleid),
+  CONSTRAINT FK_sol_rolespermissions_permissionid FOREIGN KEY (permissionid)
+    REFERENCES dbo.sol_permissions (permissionid)
+);
+GO
+
+CREATE TABLE dbo.sol_usersroles (
+  usersrolesid INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+  asignationdate DATETIME NOT NULL DEFAULT GETDATE(),
+  checksum VARBINARY(250) NOT NULL,
+  enable BIT NOT NULL DEFAULT 1,
+  deleted BIT NOT NULL DEFAULT 0,
+  roleid INT NOT NULL,
+  userid INT NOT NULL,
+  CONSTRAINT FK_sol_usersroles_roleid FOREIGN KEY (roleid)
+    REFERENCES dbo.sol_roles (roleid),
+  CONSTRAINT FK_sol_usersroles_userid FOREIGN KEY (userid)
+    REFERENCES dbo.sol_users (userid)
+);
+GO
+```
 
 # **Test de la base de datos**
 Ahora que ya Soltura cuenta con un diseño de base de datos aprobados por los ingenieros, CTO, contrapartes ingenieros de Soltura, se les ha pedido que realicen pruebas contextuales para medir el comportamiento, técnicas, rendimiento y semántica de la base de datos diseñada en SQL Server. A continuación se detallan todos los test requeridos.
@@ -834,6 +1445,180 @@ GO
 
 
 ## **Mantenimiento de la Seguridad**
+Se crean cuatro logins (identidades a nivel de servidor) y sus respectivos usuarios en la base de datos SolturaDB. Cada uno tiene un propósito diferente:
+UsuarioSoloLectura: acceso de solo lectura general.
+UsuarioSinAcceso: usuario bloqueado (no puede ni conectarse).
+UsuarioEjecutorSP: solo puede ejecutar un SP, no acceder directamente a las tablas.
+UsuarioRLS: tiene acceso con restricciones a nivel de fila (RLS).
+```sql
+USE SolturaDB;
+GO
+
+-- 1. Creación de usuarios de prueba y manejo de acceso básico
+CREATE LOGIN [UsuarioSoloLectura] WITH PASSWORD = 'Lectura123*';
+CREATE LOGIN [UsuarioSinAcceso] WITH PASSWORD = 'SinAcceso123*';
+CREATE LOGIN [UsuarioEjecutorSP] WITH PASSWORD = 'EjecutorSP123*';
+CREATE LOGIN [UsuarioRLS] WITH PASSWORD = 'RLSuser123*';
+GO
+
+USE SolturaDB;
+GO
+
+CREATE USER [UsuarioSoloLectura] FOR LOGIN [UsuarioSoloLectura]; -- podrá SELECT en todas las tablas
+CREATE USER [UsuarioSinAcceso] FOR LOGIN [UsuarioSinAcceso];
+CREATE USER [UsuarioEjecutorSP] FOR LOGIN [UsuarioEjecutorSP]; -- podrá ejecutar el SP pero no hacer SELECT directo en la tabla
+CREATE USER [UsuarioRLS] FOR LOGIN [UsuarioRLS];
+GO
+```
+
+Se definen roles para facilitar la gestión de permisos en el servidor. Después se asignan usuarios a roles y se otorgan permisos. También se ejemplifica cómo denegar un permiso aunque ya se haya otorgado.
+```sql
+DENY CONNECT TO [UsuarioSinAcceso];
+GO
+
+-- 2. Permisos SELECT específicos y roles
+-- Crear roles
+CREATE ROLE [RolLecturaGeneral];
+CREATE ROLE [RolLecturaRestringida];
+CREATE ROLE [RolDenegacionSelect];
+GO
+
+-- Asignar usuarios a roles
+ALTER ROLE [RolLecturaGeneral] ADD MEMBER [UsuarioSoloLectura];
+ALTER ROLE [RolLecturaRestringida] ADD MEMBER [UsuarioEjecutorSP];
+GO
+
+-- Permisos para roles
+GRANT SELECT ON SCHEMA::dbo TO [RolLecturaGeneral];
+GRANT SELECT ON OBJECT::[sol_users] TO [RolLecturaRestringida];
+GO
+
+-- Denegación de SELECT usando rol
+ALTER ROLE [RolDenegacionSelect] ADD MEMBER [UsuarioEjecutorSP];
+DENY SELECT ON OBJECT::[sol_users] TO [RolDenegacionSelect];
+GO
+```
+
+Se crea un SP que devuelve la información básica de usuarios. Luego se otorga permiso de ejecución a UsuarioEjecutorSP
+```sql
+-- 3. Permisos para SPs con restricción de tablas
+CREATE OR ALTER PROCEDURE sp_GetUserInfo
+AS
+BEGIN
+    SELECT userid, username, firstname, lastname, email 
+    FROM sol_users;
+END;
+GO
+
+GRANT EXECUTE ON OBJECT::[sp_GetUserInfo] TO [UsuarioEjecutorSP];
+GO
+```
+
+Aquí se implementa una política de seguridad que limita la visibilidad de filas en función del usuario
+```sql
+-- 4. Implementación de Row-Level Security (RLS)
+CREATE SCHEMA Security;
+GO
+
+-- Crear tabla de mapeo para RLS
+CREATE TABLE Security.UserAccess
+(
+    username SYSNAME PRIMARY KEY,
+    cityid INT NOT NULL
+);
+GO
+
+INSERT INTO Security.UserAccess (username, cityid)
+VALUES
+('UsuarioRLS', 1);
+GO
+
+-- Función de predicado de seguridad
+CREATE FUNCTION Security.fn_securitypredicate(@cityid AS INT)
+RETURNS TABLE
+WITH SCHEMABINDING
+AS
+RETURN SELECT 1 AS fn_securitypredicate_result
+FROM Security.UserAccess
+WHERE USER_NAME() = username AND cityid = @cityid;
+GO
+
+-- Aplicar la política de seguridad
+CREATE SECURITY POLICY Security.UserFilter
+ADD FILTER PREDICATE Security.fn_securitypredicate(cityid)
+ON dbo.sol_cities
+WITH (STATE = ON);
+GO
+
+-- Permisos SELECT para usuario con RLS
+GRANT SELECT ON [sol_cities] TO [UsuarioRLS];
+GRANT SELECT ON [sol_address] TO [UsuarioRLS];
+GRANT SELECT ON [sol_users] TO [UsuarioRLS];
+GO
+```
+
+Se crea una clave maestra, un certificado y una llave asimétrica. Son necesarios para proteger la llave simétrica y para operaciones de cifrado
+```sql
+CREATE MASTER KEY ENCRYPTION BY PASSWORD = 'MasterKeyPassword123*';
+GO
+
+CREATE CERTIFICATE CertificadoSoltura
+WITH SUBJECT = 'Certificado para cifrado SolturaDB';
+GO
+
+CREATE ASYMMETRIC KEY LlaveAsimetricaSoltura
+WITH ALGORITHM = RSA_2048;
+GO
+```
+
+Se genera una llave simétrica con AES-256, protegida por el certificado.
+```sql
+-- 6. Creación de llave simétrica
+CREATE SYMMETRIC KEY LlaveSimetricaSoltura
+WITH ALGORITHM = AES_256
+ENCRYPTION BY CERTIFICATE CertificadoSoltura;
+GO
+```
+
+Se agrega una nueva columna email_cifrado en sol_users y se cifran los correos usando ENCRYPTBYKEY.
+```sql
+-- 7. Cifrado de datos sensibles y protección con llaves
+ALTER TABLE sol_users ADD email_cifrado VARBINARY(MAX);
+GO
+
+-- Cifrado de datos
+OPEN SYMMETRIC KEY LlaveSimetricaSoltura
+DECRYPTION BY CERTIFICATE CertificadoSoltura;
+
+UPDATE sol_users
+SET email_cifrado = ENCRYPTBYKEY(KEY_GUID('LlaveSimetricaSoltura'), email);
+GO
+```
+
+Se crea un SP que abre la llave simétrica, descifra y devuelve el correo cifrado del usuario especificado y cierra la llave. Siendo ejecutable solo por UsuarioSoloLectura
+```sql
+-- 8. Creación de SP para descifrar datos
+CREATE OR ALTER PROCEDURE sp_GetEmailDecrypted
+    @userid INT
+AS
+BEGIN
+    OPEN SYMMETRIC KEY LlaveSimetricaSoltura
+    DECRYPTION BY CERTIFICATE CertificadoSoltura;
+    
+    SELECT 
+        userid,
+        username,
+        CONVERT(VARCHAR(150), DECRYPTBYKEY(email_cifrado)) AS email_decrypted
+    FROM sol_users
+    WHERE userid = @userid;
+    
+    CLOSE SYMMETRIC KEY LlaveSimetricaSoltura;
+END;
+GO
+
+GRANT EXECUTE ON OBJECT::[sp_GetEmailDecrypted] TO [UsuarioSoloLectura];
+GO
+```
 
 ## **Consultas Misceláneas**
 Ahora a continuación, unas consultas misceláneas, [Script de consultas misceláneas completo](scriptMiscelaneas.sql)
@@ -970,7 +1755,137 @@ GROUP BY price_category
 ORDER BY price_category;
 ```
 
-Imagine una cosulta que el sistema va a necesitar para mostrar cierta información, o reporte o pantalla
+Imagine una cosulta que el sistema va a necesitar para mostrar cierta información, o reporte o pantalla.
+
+Esta consulta genera un reporte analítico completo sobre el rendimiento de los planes de suscripción en la base de datos. Todo esto se calcula a partir de 3 CTEs (Common Table Expressions), varios JOIN, subconsultas, funciones agregadas, y algunas condiciones.
+
+CTE 1: SubscriptionsSummary
+Calcula cuantas suscripciones hay por plan, cuantas están activas y cuánto duran en promedio.
+```sql
+WITH SubscriptionsSummary AS (
+    -- CTE 1: Resumen de suscripciones por plan
+    SELECT 
+        p.planid,
+        p.name AS plan_name,
+        COUNT(s.subid) AS total_subscriptions,
+        SUM(CASE WHEN s.statusid = 1 THEN 1 ELSE 0 END) AS active_subscriptions,
+        AVG(DATEDIFF(DAY, s.startdate, s.enddate)) AS avg_duration_days
+    FROM 
+        dbo.sol_subscriptions s
+    JOIN 
+        dbo.sol_plans p ON s.planid = p.planid
+    GROUP BY 
+        p.planid, p.name
+)
+```
+
+CTE 2: Payment Analysis
+Analiza los pagos realizzados por cada suscripción completada. Calculando cuanto pagó en total cada suscripción, cuanto se paga en promedio, cuantos pagos se hicieron y cuando fue el último pago
+```sql
+PaymentAnalysis AS (
+    -- CTE 2: Análisis de pagos por suscripción
+    SELECT 
+        sub.subid,
+        SUM(p.amount) AS total_paid,
+        AVG(p.amount) AS avg_payment,
+        COUNT(p.paymentid) AS payment_count,
+        MAX(p.date) AS last_payment_date
+    FROM 
+        dbo.sol_payments p
+    JOIN 
+        dbo.sol_paymentschedules ps ON p.paymentid = ps.paymentid
+    JOIN
+        dbo.sol_subscriptions sub ON ps.scheduleid = sub.scheduleid
+    WHERE 
+        p.statusid IN (SELECT paymentstatusid FROM dbo.sol_paymentstatus WHERE name IN ('Completado'))
+    GROUP BY 
+        sub.subid
+)
+```
+
+CTE 3: FeatureUsageStats
+Mide el uso de características por suscripción. Suando cuantas veces se usó un servicio y promediando el porcentaje consumido.
+```sql
+FeatureUsageStats AS (
+    -- CTE 3: Estadísticas de uso de características
+    SELECT 
+        fu.subid,
+        fu.serviceid,
+        sv.name AS service_name,
+        SUM(fu.quantityused) AS total_usage,
+        AVG(fu.porcentageconsumed) AS avg_consumption
+    FROM 
+        dbo.sol_featureusage fu
+    JOIN 
+        dbo.sol_service sv ON fu.serviceid = sv.serviceid
+    GROUP BY 
+        fu.subid, fu.serviceid, sv.name
+)
+```
+
+Luego, la consulta general muestra el funcionamiento de los planes, el dinero que están generando, qué utilizan más los usuarios y qué tan activos están los planes para los usuarios
+```sql
+SELECT 
+    ss.planid,
+    ss.plan_name,
+    ss.total_subscriptions,
+    ss.active_subscriptions,
+    CONVERT(VARCHAR(10), ss.avg_duration_days) + ' days' AS avg_duration,
+    pp.amount AS current_plan_price,
+    COALESCE(SUM(pa.total_paid), 0) AS total_revenue,
+    COALESCE(AVG(pa.avg_payment), 0) AS avg_revenue_per_subscription,
+    (
+        SELECT COUNT(*) 
+        FROM dbo.sol_users u 
+        WHERE u.userid IN (
+            SELECT userid FROM dbo.sol_subscriptions WHERE planid = ss.planid
+        )
+    ) AS unique_users,
+    CASE 
+        WHEN ss.active_subscriptions > 0 THEN 'ACTIVE'
+        WHEN ss.total_subscriptions > 0 THEN 'INACTIVE'
+        ELSE 'NEW'
+    END AS plan_status,
+    (
+        SELECT TOP 1 sv.name 
+        FROM FeatureUsageStats fus 
+        JOIN dbo.sol_service sv ON fus.serviceid = sv.serviceid
+        WHERE fus.subid IN (
+            SELECT subid FROM dbo.sol_subscriptions WHERE planid = ss.planid
+        )
+        ORDER BY fus.total_usage DESC
+    ) AS most_used_feature
+FROM 
+    SubscriptionsSummary ss
+LEFT JOIN 
+    dbo.sol_planprices pp ON ss.planid = pp.planid AND pp.[current] = 1
+LEFT JOIN 
+    dbo.sol_subscriptions s ON ss.planid = s.planid
+LEFT JOIN 
+    PaymentAnalysis pa ON s.subid = pa.subid
+WHERE 
+    EXISTS (
+        SELECT 1 FROM dbo.sol_planfeatures pf 
+        WHERE pf.plantid = ss.planid AND pf.enabled = 1
+    )
+    AND ss.planid NOT IN (
+        SELECT planid FROM dbo.sol_plans WHERE enabled = 0
+    )
+GROUP BY 
+    ss.planid,
+    ss.plan_name,
+    ss.total_subscriptions,
+    ss.active_subscriptions,
+    ss.avg_duration_days,
+    pp.amount
+HAVING 
+    COALESCE(SUM(pa.total_paid), 0) > 0
+ORDER BY 
+    total_revenue DESC,
+    active_subscriptions DESC;
+GO
+```
+
 
 Crear una consulta con al menos 3 JOINs que analice información donde podría ser importante obtener un SET DIFFERENCE y un INTERSECTION
 
@@ -1416,6 +2331,182 @@ EXEC dbo.WriteRemoteLog
 ```
 
 ## **Concurrencia**
+
+### **Deadlocks entre dos transacciones**
+A partir de dos transacciones se muestra cómo se produce un deadlock y qué papel juega el nivel de aislamiento en la concurrencia a partir de dos transacciones.
+
+Transacción 1:
+1. Usa READ COMMITTED para evitar leer datos no confirmados
+2. Hace un SELECT con UPDLOCK sobre sol_service para bloquear serviceid = 1 — esto impide que otros lo modifiquen hasta que termine la transacción.
+3. Espera 3 segundos con el WAITFOR DELAY
+4. Actualiza sol_subscriptions para subid = 1.
+```sql
+-- TRANSACCIÓN 1 -
+USE SolturaDB;
+SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+BEGIN TRANSACTION;
+    DECLARE @servicePrice DECIMAL(10,2);
+    SELECT @servicePrice = sale_amount 
+    FROM dbo.sol_service WITH (UPDLOCK)
+    WHERE serviceid = 1;
+    
+    PRINT 'T1: Consultó precio del servicio 1: ' + CAST(@servicePrice AS VARCHAR);
+    
+    WAITFOR DELAY '00:00:03';
+    
+    UPDATE dbo.sol_subscriptions
+    SET statusid = 2
+    WHERE subid = 1;
+    
+    PRINT 'T1: Actualizó suscripción 1';
+COMMIT;
+PRINT 'T1: Transacción completada';
+```
+
+Transacción 2:
+1. También usa READ COMMITTED.
+2. Hace un SELECT con UPDLOCK sobre sol_subscriptions para subid = 1.
+3. Espera 3 segundos.
+4. Actualiza sol_service para serviceid = 1.
+```sql
+-- TRANSACCIÓN 2 -
+USE SolturaDB;
+SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+BEGIN TRANSACTION;
+    DECLARE @subStatus INT;
+    SELECT @subStatus = statusid 
+    FROM dbo.sol_subscriptions WITH (UPDLOCK)
+    WHERE subid = 1;
+    
+    PRINT 'T2: Consultó estado de suscripción 1: ' + CAST(@subStatus AS VARCHAR);
+    
+    WAITFOR DELAY '00:00:03';
+    
+    UPDATE dbo.sol_service
+    SET sale_amount = sale_amount * 1.1
+    WHERE serviceid = 1;
+    
+    PRINT 'T2: Actualizó servicio 1';
+COMMIT;
+PRINT 'T2: Transacción completada';
+```
+
+Cuando T1 bloquea sol_service y luego quiere sol_subscriptions, pero T2 ya tiene ese, al mismo tiempo , T2 quiere sol_service que lo tiene T1, ambos se quedan esperando, pero SQL Server lo detecta y mata a uno para liberar el recurso, provocando el deadlock.
+
+### **Deadlock en cascada**
+Este código es para determinar si es posible hacer un deadlock en cascada con 3 transacciones bloqueandose entre sí.
+
+La transacción A bloquea sol_service e intenta acceder a sol_subscriptions, pero, simultáneamente, la transacción B bloque sol_subscriptions y trata de acceder a sol_payments, pero la transacción C bloquea sol_payments e intenta acceder a sol_service.
+
+Conformando un ciclo:
+A bloque a a C y espera por B
+```sql
+-- TRANSACCIÓN A
+USE SolturaDB;
+SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+BEGIN TRANSACTION;
+    -- 1. Bloquear servicio
+    UPDATE dbo.sol_service 
+    SET description = 'Modificado por Transacción A'
+    WHERE serviceid = 1;
+    
+    PRINT 'A: Bloqueado servicio 1 - esperando 5 segundos';
+    WAITFOR DELAY '00:00:05';
+    
+    -- 2. Intentar bloquear suscripción
+    UPDATE dbo.sol_subscriptions
+    SET statusid = 2
+    WHERE subid = 1;
+    
+    PRINT 'A: Bloqueada suscripción 1';
+COMMIT;
+PRINT 'A: Transacción completada';
+```
+B bloquea a A y espera por C
+```sql
+-- TRANSACCIÓN B
+USE SolturaDB;
+SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+BEGIN TRANSACTION;
+    -- 1. Bloquear suscripción
+    UPDATE dbo.sol_subscriptions
+    SET statusid = 3
+    WHERE subid = 1;
+    
+    PRINT 'B: Bloqueada suscripción 1 - esperando 5 segundos';
+    WAITFOR DELAY '00:00:05';
+    
+    -- 2. Intentar bloquear pago
+    UPDATE dbo.sol_payments
+    SET amount = amount * 1.1
+    WHERE paymentid = 1;
+    
+    PRINT 'B: Bloqueado pago 1';
+COMMIT;
+PRINT 'B: Transacción completada';
+```
+C bloque a a B y espera por A
+```sql
+-- TRANSACCIÓN C
+USE SolturaDB;
+SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+BEGIN TRANSACTION;
+    -- 1. Bloquear pago
+    UPDATE dbo.sol_payments
+    SET amount = amount * 0.9
+    WHERE paymentid = 1;
+    
+    PRINT 'C: Bloqueado pago 1 - esperando 5 segundos';
+    WAITFOR DELAY '00:00:05';
+    
+    -- 2. Intentar bloquear servicio
+    UPDATE dbo.sol_service
+    SET description = 'Modificado por Transacción C'
+    WHERE serviceid = 1;
+    
+    PRINT 'C: Bloqueado servicio 1';
+COMMIT;
+PRINT 'C: Transacción completada';
+```
+
+cada una espera por un recurso que otra tiene bloqueado. Ninguna puede continuar, así que SQL Server detecta el ciclo y elige a una víctima para abortar por medio del Deadlock (normalmente la que tenga menor costo de rollback).
+
+Estos deadlocks pueden revisarse en el Monitor, el cual se crea como una sesión de Extended Events llamada Deadlock_Monitor. Este usa el evento sqlserver.xml_deadlock_report que se lanza en el momento en que un deadlock ocurre.
+Guarda los eventos en un archivo .xel
+```sql
+-- Crear sesión de Extended Events
+CREATE EVENT SESSION [Deadlock_Monitor] ON SERVER 
+ADD EVENT sqlserver.xml_deadlock_report
+ADD TARGET package0.event_file(
+    SET filename = N'Deadlock_Monitor',
+    max_file_size = 5
+)
+WITH (STARTUP_STATE = OFF);
+GO
+```
+
+Inicia la sesión dejándola en estado activo para que comience a guardar los deadlocks
+```sql
+-- Iniciar la sesión
+ALTER EVENT SESSION [Deadlock_Monitor] ON SERVER STATE = START;
+GO
+```
+
+Consulta la ubicación del archivo de log, generalmente, la ruta por defecto del archivo es 'C:\Program Files\Microsoft SQL Server\MSSQL16.MSSQLSERVER\MSSQL\Log\Deadlock_Monitor_0_133910497631130000.xel'
+```sql
+-- Para saber la ubicación del archivo con el monitor
+SELECT 
+    CAST(target_data AS XML).value(
+        '(EventFileTarget/File/@name)[1]', 
+        'varchar(500)'
+    ) AS xel_file_path
+FROM sys.dm_xe_session_targets st
+JOIN sys.dm_xe_sessions s ON s.address = st.event_session_address
+WHERE s.name = 'Deadlock_Monitor';
+```
+
+El monitor muestra cuando sucedió el deadlock con la hora en que sucedió, herramienta útil para verificar si el deadlock en cascada es posible.
+
 
 ### **Casos y niveles de isolación**
 1. Reporte histórico general

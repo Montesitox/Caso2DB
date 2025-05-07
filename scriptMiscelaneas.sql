@@ -115,8 +115,6 @@ GROUP BY price_category
 ORDER BY price_category;
 
 -- 4. Reporte Analítico: Rendimiento de Planes con Métricas de Suscripción, Pagos y Uso de Características
-USE SolturaDB;
-GO
 
 WITH SubscriptionsSummary AS (
     -- CTE 1: Resumen de suscripciones por plan
